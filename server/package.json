@@ -1,0 +1,14 @@
+{
+  "name": "seat-tracker-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiny state-storage API for the Seat Tracker app, backed by SQLite.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2"
+  }
+}

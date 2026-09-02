@@ -1,0 +1,12 @@
+# Use this overlay when you just want to run the app directly on the
+# company server (or your laptop) and hit it over a plain host port —
+# no Pangolin/reverse proxy involved.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#   open http://<server-ip>:8080
+
+services:
+  seat-tracker:
+    ports:
+      - "8080:80"

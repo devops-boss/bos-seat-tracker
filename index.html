@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big Outsource — OPS Room Seat Tracker</title>
+<link rel="icon" type="image/png" href="BOS_logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-brand">
+    <img src="BOS_logo.png" alt="Big Outsource logo" class="brand-logo" id="brandLogo"
+         onerror="this.style.display='none'; document.getElementById('brandLogoFallback').style.display='flex';">
+    <div class="brand-logo-fallback" id="brandLogoFallback">B</div>
+    <div class="header-left">
+      <h1>Big Outsource — Seat Tracker</h1>
+      <p>Drag seats to swap or click to edit occupant details.</p>
+    </div>
+  </div>
+  <div class="header-toolbar">
+    <div class="seat-search-wrap" id="seatSearchWrap">
+      <span class="seat-search-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </span>
+      <input type="text" id="seatSearchInput" class="seat-search-input" placeholder="Search by name…" autocomplete="off">
+      <button type="button" class="seat-search-clear" id="seatSearchClear" title="Clear search">
+        <svg viewBox="0 0 18 18" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="3" y1="3" x2="15" y2="15"></line><line x1="15" y1="3" x2="3" y2="15"></line></svg>
+      </button>
+      <div class="seat-search-suggestions" id="seatSearchSuggestions"></div>
+    </div>
+    <button class="toolbar-btn" id="exportMenuBtn">⬇ Export</button>
+    <button class="toolbar-btn" id="historyModalBtn">Version History</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="toast-notification" id="webNotification">
+    <span id="notificationText">Notification message</span>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Floor plan — <span class="ops-name" id="floorOpsName"></span></h2>
+      <div class="card-header-right">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div id="snapshotReturnBanner" style="display:none;">
+            <button class="subtle" style="background:#e0f2fe; color:#0369a1; border-color:#bae6fd; font-size:11px; padding:5px 11px;" onclick="exitSnapshotPreview()">← Return to Live View</button>
+          </div>
+          <span id="modeBadge" style="font-size:10.5px; background:var(--bg-subtle); color:#475569; padding:4px 10px; border-radius:20px; font-weight:700; letter-spacing:0.02em;">Live Mode</span>
+        </div>
+        <div class="site-pill-wrap" id="sitePillWrap">
+          <button type="button" class="site-pill-btn" id="sitePillBtn" aria-haspopup="listbox" aria-expanded="false">
+            <span id="sitePillLabel">HQ Seat Plan</span>
+            <span class="site-pill-chevron">▾</span>
+          </button>
+          <div class="site-pill-menu" id="sitePillMenu" role="listbox">
+            <div class="site-pill-option active" data-site="HQ Seat Plan" role="option">HQ Seat Plan</div>
+            <div class="site-pill-option" data-site="Candelaria Seat Plan" role="option">Candelaria Seat Plan</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-bar" id="statsBar"></div>
+
+    <div class="floor-container-wrapper">
+      <div id="floorRoot" class="floor"></div>
+    </div>
+
+    <div class="legend-bar">
+      <span class="legend-item"><span class="legend-swatch swatch-vacant"></span>Vacant</span>
+      <span class="legend-item"><span class="legend-swatch swatch-newhire"></span>New Hire</span>
+      <span class="legend-note">Occupied seats are colored per account</span>
+    </div>
+
+    <!-- Quick Edit Inline Panel -->
+    <div class="panel" id="panel">
+      <div class="panel-title">
+        <span>Edit Seat (<span id="panelSeatIdLabel"></span>)</span>
+        <button class="subtle" style="padding:1px 6px; font-size:10.5px;" onclick="closePanel()">✕ Close</button>
+      </div>
+      <div class="panel-row">
+        <div>
+          <label>Occupant Name</label>
+          <input type="text" id="occInput" placeholder="Agent name">
+        </div>
+        <div>
+          <label>Team / Account <span class="req-mark" title="Required">*</span></label>
+          <select id="teamInput">
+            <option value="">-- Select Account --</option>
+          </select>
+          <div style="display: flex; gap: 4px; margin-top: 4px;">
+            <button type="button" class="subtle" id="addAccountBtn" style="padding:3px 6px; font-size:10px;">+ Add Account</button>
+            <button type="button" class="subtle" id="removeAccountBtn" style="padding:3px 6px; font-size:10px; color:#b91c1c;">- Remove Account</button>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: 4px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input type="checkbox" id="newHireInput" style="min-width: auto; width: 16px; height: 16px; cursor: pointer;">
+            <label for="newHireInput" style="margin: 0; cursor: pointer; color: var(--text-dark); font-weight: 600; font-size: 11px;">New Hire / Under Training (★)</label>
+          </div>
+          <button type="button" class="subtle" id="clearNewHireBtn" style="padding:3px 6px; font-size:10px;" title="Removes the ★ New Hire tag from every seat in this OPS">★ Clear New Hire Tags</button>
+        </div>
+      </div>
+      <div class="panel-actions">
+        <div>
+          <button class="danger" id="offboardBtn" style="padding:5px 10px; font-size:11px;">Offboard / Clear Seat</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="primary" id="saveBtn" style="padding:5px 12px; font-size:11.5px;">Apply Change</button>
+          <button id="cancelBtn" class="subtle" style="padding:5px 12px; font-size:11.5px;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="floating-save-bar" id="floatingSaveBar">
+  <div class="floating-save-text">Staged changes in <span id="floatingRoomName">OPS 5</span></div>
+  <div style="display:flex; gap:6px;">
+    <button class="subtle" id="discardDraftBtn" style="background:#334155; color:#fff; border-color:#475569;">Discard</button>
+    <button class="success" id="commitPlanBtn" style="padding:6px 14px;">Save Full Seat Plan</button>
+  </div>
+</div>
+
+<!-- Version History Modal -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 id="modalTitle">Committed Seat Plan Versions</h3>
+      <button class="modal-close" id="closeModalBtn">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Custom Centered Floating Web Dialog -->
+<div class="modal-overlay" id="customDialogOverlay">
+  <div class="custom-dialog-box">
+    <div id="dialogIcon" class="dialog-icon">🔔</div>
+    <div id="dialogTitle" class="dialog-title">Notification</div>
+    <div id="dialogMessage" class="dialog-message">Message text here</div>
+    <input type="text" id="dialogInput" class="dialog-input" style="display: none;" placeholder="">
+    <div id="dialogActions" class="dialog-actions"></div>
+  </div>
+</div>
+
+<div class="help-fab-wrap" id="helpFabWrap">
+  <div class="help-panel" id="helpPanel">
+    <div class="help-panel-title">How to use this tracker</div>
+    <ul class="help-panel-list">
+      <li><strong>Drag</strong> a seat onto another seat to swap their occupants.</li>
+      <li><strong>Click</strong> a seat to edit the occupant, account, or new-hire status.</li>
+      <li>Edits are staged as a <strong>draft</strong> first — use <strong>Save Full Seat Plan</strong> to commit them, or <strong>Discard</strong> to cancel.</li>
+      <li>Use <strong>Site</strong> (top right of the floor plan) to switch between HQ and Candelaria seat plans.</li>
+      <li><strong>Version History</strong> lets you preview or restore a previously committed layout.</li>
+      <li><strong>Export</strong> downloads the current live seat plan to Excel.</li>
+    </ul>
+  </div>
+  <button type="button" class="help-fab" id="helpFabBtn" aria-haspopup="true" aria-expanded="false" aria-label="How to use this seat tracker">?</button>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Overlay for exposing this app through Pangolin (fosrl/pangolin) via a Newt
+# site connector, instead of publishing the port straight to the host.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.pangolin.yml up -d
+#
+# Before running:
+#   1. In your Pangolin dashboard, create a new Site with type "Docker/Newt".
+#   2. Copy the generated Newt ID + Newt Secret into a ".env" file next to
+#      this compose file (see .env.example).
+#   3. Once "newt" is running and shows the Site as Online in Pangolin,
+#      create a Resource on that Site pointing at:
+#        Target: seat-tracker
+#        Port:   80
+#      (no need to publish the app's port to the host at all in this mode)
+
+services:
+  newt:
+    image: fosrl/newt:latest
+    container_name: newt
+    restart: unless-stopped
+    environment:
+      - PANGOLIN_ENDPOINT=${PANGOLIN_ENDPOINT}
+      - NEWT_ID=${NEWT_ID}
+      - NEWT_SECRET=${NEWT_SECRET}
+    networks:
+      - seat-tracker-net
