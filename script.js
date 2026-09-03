@@ -2,7 +2,7 @@ const SITE_LIST = ['HQ Seat Plan', 'Candelaria Seat Plan'];
 const DEFAULT_SITE = 'HQ Seat Plan';
 
 const SITE_OPS_LISTS = {
-  'HQ Seat Plan': ['OPS 1', 'OPS 3', 'OPS 5', 'OPS 6', 'OPS 7', 'OPS 8', 'OPS 10'],
+  'HQ Seat Plan': ['OPS 1', 'OPS 3', 'OPS 5', 'OPS 6', 'OPS 7', 'OPS 8', 'OPS 9', 'OPS 10'],
   'Candelaria Seat Plan': ['OPS 1', 'OPS 2', 'OPS 3', 'OPS 4', 'OPS 5']
 };
 
@@ -15,6 +15,7 @@ const HQ_OPS_ACCOUNTS = {
   'OPS 6': [],
   'OPS 7': ['Travers', 'USLS'],
   'OPS 8': ['UTD', 'Under the Doormat'],
+  'OPS 9': [],
   // Real floor plan is in now; no accounts assigned yet, so it starts fully vacant.
   'OPS 10': []
 };
@@ -263,6 +264,39 @@ const HQ_ROOM_LAYOUTS = {
           { left: 'BAY1P9', right: 'BAY1P5' }, { left: 'BAY1P13', right: 'BAY1P6' }
         ],
         leadSeat: 'BAY1P7', leadTitle: 'TL SEAT', showDoor: true
+      }
+    ]
+  },
+  // OPS 9 shares the same floor layout as OPS 6 (3-bay compact/vertical
+  // arrangement) — copied as-is, no seed occupants (starts fully vacant).
+  'OPS 9': {
+    mode: 'compact',
+    type: 'vertical',
+    columns: [
+      {
+        bayName: 'BAY 1',
+        pairs: [
+          { left: 'BAY1P1', right: 'BAY1P13' }, { left: 'BAY1P2', right: 'BAY1P12' },
+          { left: 'BAY1P3', right: 'BAY1P11' }, { left: 'BAY1P4', right: 'BAY1P10' },
+          { left: 'BAY1P5', right: 'BAY1P9' }, { left: 'BAY1P6', right: 'BAY1P8' }
+        ],
+        leadSeat: 'BAY1P7', leadTitle: 'TL SEAT', showDoor: true
+      },
+      {
+        bayName: 'BAY 2',
+        pairs: [
+          { left: 'BAY2P1', right: 'BAY2P13' }, { left: 'BAY2P2', right: 'BAY2P12' },
+          { left: 'BAY2P3', right: 'BAY2P11' }, { left: 'BAY2P4', right: 'BAY2P10' },
+          { left: 'BAY2P5', right: 'BAY2P9' }, { left: 'BAY2P6', right: 'BAY2P8' }
+        ],
+        leadSeat: 'BAY2P7', leadTitle: 'TL SEAT'
+      },
+      {
+        bayName: 'BAY 3',
+        pairs: [
+          { left: 'BAY3P1' }, { left: 'BAY3P2' }, { left: 'BAY3P3' },
+          { left: 'BAY3P4' }, { left: 'BAY3P5' }, { left: 'BAY3P6' }
+        ]
       }
     ]
   },

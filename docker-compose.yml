@@ -1,25 +1,24 @@
 services:
   seat-tracker:
-    build: .
+    build:
+      context: .
+      network: host
     image: seat-tracker:latest
     container_name: seat-tracker
     restart: unless-stopped
+    ports:
+      - "8080:80"
     depends_on:
       - api
-    # No host port published here by default — the app only needs to be
-    # reachable on the internal Docker network. Add one of the overlay files
-    # below depending on how you want to reach it:
-    #   docker-compose.local.yml     -> publish 8080 on the host for a quick test
-    #   docker-compose.pangolin.yml  -> add the Pangolin Newt sidecar instead
     networks:
       - seat-tracker-net
-
+ 
   # Tiny backend that persists the app's data to a SQLite file instead of
   # each browser's localStorage, so everyone sees the same seat plan.
-  # Nothing to configure — the database file and table are created
-  # automatically on first start, inside the "seat-tracker-data" volume below.
   api:
-    build: ./server
+    build:
+      context: ./server
+      network: host
     image: seat-tracker-api:latest
     container_name: seat-tracker-api
     restart: unless-stopped
@@ -27,11 +26,11 @@ services:
       - seat-tracker-data:/app/data
     networks:
       - seat-tracker-net
-
+ 
 networks:
   seat-tracker-net:
     driver: bridge
-
+ 
 volumes:
   # Keeps the SQLite database file on disk across container restarts/redeploys.
   seat-tracker-data:
