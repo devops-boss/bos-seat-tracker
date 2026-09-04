@@ -743,6 +743,91 @@ let dbState = {};
 let viewingSnapshotSeats = null;
 let viewingSnapshotVersionId = null;
 
+// --- Undo / Redo (per-room, session-only) -----------------------------
+// Tracks staged-draft edits (seat swaps, panel edits, offboards, discards,
+// new-hire-tag clears) per OPS room so a move can be undone/redone before
+// it's committed. Lives only in the browser tab's memory — it isn't saved
+// to the server or localStorage, same as any normal app's undo history.
+const UNDO_HISTORY_LIMIT = 50;
+let undoRedoStacks = {}; // { [siteKey::ops]: { undo: [snapshotOrNull], redo: [snapshotOrNull] } }
+
+function undoRedoEntry(ops) {
+  const key = dbKey(ops);
+  if (!undoRedoStacks[key]) undoRedoStacks[key] = { undo: [], redo: [] };
+  return undoRedoStacks[key];
+}
+
+function snapshotDraftFor(ops) {
+  const room = dbState[dbKey(ops)];
+  return room && room.draftSeats ? JSON.parse(JSON.stringify(room.draftSeats)) : null;
+}
+
+// Call this right before mutating draftSeats for `ops`, so the pre-change
+// state (which may be null, meaning "no draft yet") is remembered.
+function recordUndoPoint(ops = currentOps) {
+  const entry = undoRedoEntry(ops);
+  entry.undo.push(snapshotDraftFor(ops));
+  if (entry.undo.length > UNDO_HISTORY_LIMIT) entry.undo.shift();
+  entry.redo = [];
+  updateUndoRedoButtons();
+}
+
+// Committing turns the draft into the new live baseline — old undo/redo
+// steps no longer apply to anything, so start that room's history fresh.
+function clearUndoRedo(ops = currentOps) {
+  delete undoRedoStacks[dbKey(ops)];
+  updateUndoRedoButtons();
+}
+
+function updateUndoRedoButtons() {
+  const undoBtn = document.getElementById('undoBtn');
+  const redoBtn = document.getElementById('redoBtn');
+  if (!undoBtn || !redoBtn) return;
+  const entry = undoRedoEntry(currentOps);
+  undoBtn.disabled = viewingSnapshotSeats || entry.undo.length === 0;
+  redoBtn.disabled = viewingSnapshotSeats || entry.redo.length === 0;
+}
+
+async function undoChange() {
+  if (viewingSnapshotSeats) return;
+  const entry = undoRedoEntry(currentOps);
+  if (!entry.undo.length) return;
+
+  const room = dbState[dbKey(currentOps)];
+  entry.redo.push(snapshotDraftFor(currentOps));
+  room.draftSeats = entry.undo.pop();
+
+  await saveDB();
+  closePanel();
+  renderTabs();
+  renderStats();
+  renderFloatingBar();
+  renderFloor();
+  updateUndoRedoButtons();
+  showNotification('Undid last change.', '');
+}
+window.undoChange = undoChange;
+
+async function redoChange() {
+  if (viewingSnapshotSeats) return;
+  const entry = undoRedoEntry(currentOps);
+  if (!entry.redo.length) return;
+
+  const room = dbState[dbKey(currentOps)];
+  entry.undo.push(snapshotDraftFor(currentOps));
+  room.draftSeats = entry.redo.pop();
+
+  await saveDB();
+  closePanel();
+  renderTabs();
+  renderStats();
+  renderFloatingBar();
+  renderFloor();
+  updateUndoRedoButtons();
+  showNotification('Redid change.', '');
+}
+window.redoChange = redoChange;
+
 function storageKey() { return STORAGE_PREFIX + 'db'; }
 
 // dbState is namespaced per site so that e.g. "OPS 1" in HQ and "OPS 1" in Candelaria
@@ -1050,6 +1135,7 @@ function renderFloatingBar() {
   const bar = document.getElementById('floatingSaveBar');
   const rootFloor = document.getElementById('floorRoot');
   const returnBanner = document.getElementById('snapshotReturnBanner');
+  updateUndoRedoButtons();
 
   if (viewingSnapshotSeats) {
     bar.classList.remove('active');
@@ -1152,6 +1238,7 @@ async function handleDrop(e, targetId) {
   if (!draggedSeatId || draggedSeatId === targetId) return;
 
   const room = dbState[dbKey(currentOps)];
+  recordUndoPoint(currentOps);
   if (!room.draftSeats) {
     room.draftSeats = JSON.parse(JSON.stringify(room.liveSeats));
   }
@@ -1570,6 +1657,7 @@ async function saveSeatEdit() {
       }
 
       const room = dbState[dbKey(currentOps)];
+      recordUndoPoint(currentOps);
       if (!room.draftSeats) {
         room.draftSeats = JSON.parse(JSON.stringify(room.liveSeats));
       }
@@ -1601,6 +1689,7 @@ async function offboardSeat() {
     type: 'confirm',
     onConfirm: async () => {
       const room = dbState[dbKey(currentOps)];
+      recordUndoPoint(currentOps);
       if (!room.draftSeats) {
         room.draftSeats = JSON.parse(JSON.stringify(room.liveSeats));
       }
@@ -1631,6 +1720,7 @@ async function discardDraft() {
     message: 'Are you sure you want to discard all staged draft changes?',
     type: 'confirm',
     onConfirm: async () => {
+      recordUndoPoint(currentOps);
       dbState[dbKey(currentOps)].draftSeats = null;
       await saveDB();
       withRoomTransition(() => {
@@ -1661,6 +1751,7 @@ async function clearAllNewHireTags() {
     message: 'Remove the ★ New Hire tag from all ' + taggedCount + ' tagged seat(s) in ' + currentOps + '? Seats currently marked Training will be set to Occupied.',
     type: 'confirm',
     onConfirm: async () => {
+      recordUndoPoint(currentOps);
       if (!room.draftSeats) {
         room.draftSeats = JSON.parse(JSON.stringify(room.liveSeats));
       }
@@ -1702,6 +1793,7 @@ async function commitFullSeatPlan() {
   room.liveSeats = room.draftSeats;
   room.draftSeats = null;
   room.snapshots.push(newSnap);
+  clearUndoRedo(currentOps);
 
   await saveDB();
   withRoomTransition(() => {
@@ -1973,6 +2065,16 @@ document.getElementById('offboardBtn').addEventListener('click', offboardSeat);
 document.getElementById('cancelBtn').addEventListener('click', closePanel);
 document.getElementById('commitPlanBtn').addEventListener('click', commitFullSeatPlan);
 document.getElementById('discardDraftBtn').addEventListener('click', discardDraft);
+document.getElementById('undoBtn').addEventListener('click', undoChange);
+document.getElementById('redoBtn').addEventListener('click', redoChange);
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target && e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const key = e.key.toLowerCase();
+  if (key === 'z' && !e.shiftKey) { e.preventDefault(); undoChange(); }
+  else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); redoChange(); }
+});
 document.getElementById('historyModalBtn').addEventListener('click', openHistoryModal);
 document.getElementById('clearNewHireBtn').addEventListener('click', clearAllNewHireTags);
 document.getElementById('closeModalBtn').addEventListener('click', closeHistoryModal);

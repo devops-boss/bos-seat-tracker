@@ -32,8 +32,17 @@
       </button>
       <div class="seat-search-suggestions" id="seatSearchSuggestions"></div>
     </div>
-    <button class="toolbar-btn" id="exportMenuBtn">⬇ Export</button>
-    <button class="toolbar-btn" id="historyModalBtn">Version History</button>
+
+    <div class="toolbar-divider" aria-hidden="true"></div>
+
+    <button class="toolbar-btn" id="exportMenuBtn">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+      Export
+    </button>
+    <button class="toolbar-btn" id="historyModalBtn">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path><path d="M12 7v5l4 2"></path></svg>
+      History
+    </button>
   </div>
 </div>
 
@@ -68,7 +77,20 @@
       </div>
     </div>
 
-    <div class="stats-bar" id="statsBar"></div>
+    <div class="stats-row">
+      <div class="stats-bar" id="statsBar"></div>
+      <div class="quick-actions" role="group" aria-label="Undo and redo">
+        <button class="icon-action" id="undoBtn" title="Undo last change (Ctrl+Z)" aria-label="Undo">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>
+          <span>Undo</span>
+        </button>
+        <span class="quick-actions-sep" aria-hidden="true"></span>
+        <button class="icon-action" id="redoBtn" title="Redo (Ctrl+Y)" aria-label="Redo">
+          <span>Redo</span>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"></path><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"></path></svg>
+        </button>
+      </div>
+    </div>
 
     <div class="floor-container-wrapper">
       <div id="floorRoot" class="floor"></div>
