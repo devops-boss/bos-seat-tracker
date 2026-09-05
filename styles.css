@@ -563,16 +563,40 @@
     50% { box-shadow: 0 0 0 1px #fff, 0 0 0 4px rgba(245, 158, 11, 0); }
   }
 
-  /* New hire star badge on the upper right */
+  /* New hire star badge — minimalist flat mark in the brand's accent orange,
+     bottom-left corner. No background chip, no ring, no animation — just a
+     crisp glyph with a soft light halo so it stays legible on every account
+     color without adding visual noise. */
   .seat.new-hire::before {
-    content: '★'; position: absolute; top: 1px; right: 3px; font-size: 11px;
-    color: var(--warning-yellow); text-shadow: 0 1px 2px rgba(0,0,0,0.2); z-index: 3;
-    animation: starTwinkle 2.4s ease-in-out infinite;
+    content: '★'; position: absolute; bottom: 2px; left: 4px; top: auto; right: auto;
+    font-size: 10px; line-height: 1; color: var(--accent-orange);
+    text-shadow: 0 0 3px rgba(255,255,255,0.85), 0 0 1px rgba(255,255,255,0.85);
+    z-index: 3;
   }
-  @keyframes starTwinkle {
-    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
-    50% { opacity: 0.75; transform: scale(1.15) rotate(8deg); }
+
+  /* Duty-schedule indicator dot, upper right corner of each seat:
+     green = on shift right now, gray = off shift, red = resigned/rendering */
+  .schedule-dot {
+    position: absolute; top: 3px; right: 3px; width: 8px; height: 8px;
+    border-radius: 50%; box-shadow: 0 0 0 1.5px #fff; z-index: 4;
   }
+  .schedule-dot.dot-green { background: var(--success-green); animation: dotPulseGreen 2.2s ease-in-out infinite; }
+  .schedule-dot.dot-gray { background: #94A3B8; }
+  .schedule-dot.dot-red { background: var(--danger-red); animation: dotPulseRed 1.6s ease-in-out infinite; }
+  @keyframes dotPulseGreen {
+    0%, 100% { box-shadow: 0 0 0 1.5px #fff, 0 0 0 1.5px rgba(16, 185, 129, 0.5); }
+    50% { box-shadow: 0 0 0 1.5px #fff, 0 0 0 4px rgba(16, 185, 129, 0); }
+  }
+  @keyframes dotPulseRed {
+    0%, 100% { box-shadow: 0 0 0 1.5px #fff, 0 0 0 1.5px rgba(239, 68, 68, 0.55); }
+    50% { box-shadow: 0 0 0 1.5px #fff, 0 0 0 4px rgba(239, 68, 68, 0); }
+  }
+
+  /* Color-only variants for the legend key (not positioned/absolute like .schedule-dot) */
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .legend-dot.dot-green { background: var(--success-green); }
+  .legend-dot.dot-gray { background: #94A3B8; }
+  .legend-dot.dot-red { background: var(--danger-red); }
 
   .seat.tl-lead-seat {
     height: 62px !important;
@@ -619,27 +643,188 @@
 
   /* ============ Quick Edit Inline Panel ============ */
   .panel {
-    display: none; margin-top: 16px; padding: 18px; background: linear-gradient(180deg, #ffffff, #fbfdff);
+    display: none; margin-top: 16px; padding: 22px 26px; background: linear-gradient(180deg, #ffffff, #fbfdff);
     border-radius: var(--radius-lg); border: 1.5px solid var(--secondary-blue);
     box-shadow: 0 6px 20px rgba(40, 143, 194, 0.14);
   }
   .panel.open { display: block; animation: panelIn 0.18s var(--ease); }
   @keyframes panelIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   .panel-title {
-    font-size: 13.5px; font-weight: 700; margin-bottom: 12px; color: var(--primary-blue);
+    font-size: 13.5px; font-weight: 700; margin-bottom: 16px; color: var(--primary-blue);
     display: flex; justify-content: space-between; align-items: center;
     padding-bottom: 10px; border-bottom: 1px solid var(--border-light);
   }
-  .panel-row { display: flex; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
-  .panel-row label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+  .panel-body { display: flex; gap: 48px; margin-bottom: 18px; }
+  .panel-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+
+  .panel-section-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 10.5px; font-weight: 800; color: var(--secondary-blue); text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .panel-section-title::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0;
+  }
+  .panel-section-title-sub { margin-top: 6px; }
+
+  .field-group { display: flex; flex-direction: column; }
+  .field-group label,
+  .panel label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
   .panel input[type="text"], .panel select {
     padding: 8px 11px; border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm);
-    font-size: 12.5px; font-family: inherit; min-width: 170px; outline: none; background: #fff;
+    font-size: 12.5px; font-family: inherit; width: 100%; outline: none; background: #fff;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .panel input:focus, .panel select:focus { border-color: var(--secondary-blue); box-shadow: 0 0 0 3px rgba(40, 143, 194, 0.15); }
   .panel input:hover, .panel select:hover { border-color: var(--text-faint); }
   .req-mark { color: var(--danger-red); font-weight: 700; }
+
+  .account-btn-row { display: flex; gap: 6px; margin-top: 6px; }
+  .account-btn-row .subtle { padding: 4px 9px; font-size: 10.5px; flex: 1 1 auto; }
+  .subtle.danger-text { color: #b91c1c; }
+
+  /* Status toggle rows (New Hire / Resigned) — plain clickable buttons, same
+     click-to-toggle interaction as the day pills, no checkbox input. The
+     whole row is the click target; a small indicator dot fills in to show
+     the active state. */
+  .status-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .status-toggle-row .subtle { flex-shrink: 0; padding: 6px 10px; font-size: 10.5px; }
+  .status-toggle {
+    display: flex; align-items: center; gap: 9px; flex: 1 1 auto; min-width: 0;
+    padding: 8px 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--border-light);
+    background: var(--bg-alt); cursor: pointer; user-select: none; transition: all 0.15s ease;
+    font-family: inherit; text-align: left; outline: none; appearance: none; width: 100%;
+  }
+  .status-toggle:hover { border-color: var(--text-faint); }
+  .status-toggle:focus-visible { box-shadow: 0 0 0 3px rgba(40, 143, 194, 0.2); }
+  .status-toggle-indicator {
+    width: 15px; height: 15px; border-radius: 5px; border: 1.5px solid var(--border-mid);
+    background: #fff; flex-shrink: 0; position: relative; transition: all 0.15s ease;
+  }
+  .status-toggle-indicator::after {
+    content: ''; position: absolute; inset: 3px; border-radius: 2px; background: transparent; transition: background 0.15s ease;
+  }
+  .status-toggle span { font-size: 11px; font-weight: 600; color: var(--text-dark); }
+  .status-toggle-newhire.active { background: #fff7e0; border-color: var(--warning-yellow); }
+  .status-toggle-newhire.active .status-toggle-indicator { border-color: var(--warning-yellow); }
+  .status-toggle-newhire.active .status-toggle-indicator::after { background: var(--warning-yellow); }
+  .status-toggle-resigned span { color: var(--danger-red); font-weight: 700; }
+  .status-toggle-resigned.active { background: #fef2f2; border-color: var(--danger-red); }
+  .status-toggle-resigned.active .status-toggle-indicator { border-color: var(--danger-red); }
+  .status-toggle-resigned.active .status-toggle-indicator::after { background: var(--danger-red); }
+
+  /* Live helper line reflecting the two toggles above, so it's always clear
+     what will actually appear on the floor plan. */
+  .status-preview { font-size: 10.5px; color: var(--text-faint); font-weight: 600; padding: 0 2px; }
+
+  /* ============ Duty Schedule fields (seat panel + schedule manager) ============ */
+  .schedule-account-preview {
+    font-size: 10.5px; color: var(--text-muted); background: var(--bg-subtle);
+    border-radius: var(--radius-sm); padding: 7px 9px;
+  }
+  .schedule-custom-fields { display: flex; flex-direction: column; gap: 8px; }
+  /* Always-visible link to the Account Duty Schedule modal, regardless of
+     whether this agent is set to follow the account default or a custom
+     schedule of their own. */
+  .schedule-manage-row { margin-top: 2px; }
+  .schedule-manage-row .subtle { padding: 5px 10px; font-size: 10.5px; width: 100%; }
+  .schedule-days-row { display: flex; gap: 7px; flex-wrap: wrap; }
+
+  /* Day selector pills — plain clickable ovals, no checkbox, no label wrapper.
+     Click anywhere on the pill to toggle that day on/off. */
+  .sched-day-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: inherit; font-size: 10.5px; font-weight: 700;
+    background: #fff; border: 1.5px solid var(--border-mid); border-radius: 999px;
+    padding: 8px 6px; min-width: 42px; cursor: pointer; user-select: none;
+    text-transform: uppercase; color: var(--text-muted); outline: none;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+  .sched-day-toggle:hover { border-color: var(--secondary-blue); color: var(--primary-blue); }
+  .sched-day-toggle:active { transform: scale(0.94); }
+  .sched-day-toggle.active {
+    background: var(--secondary-blue); border-color: var(--secondary-blue); color: #fff;
+    box-shadow: 0 2px 6px rgba(40, 143, 194, 0.35);
+  }
+  .sched-day-toggle:focus-visible { box-shadow: 0 0 0 3px rgba(40, 143, 194, 0.3); }
+  .schedule-time-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-light); }
+
+  /* One-click day presets above the pill row (Weekdays / Weekend / All / Clear) */
+  .sched-preset-row { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+  .sched-preset-btn {
+    font-family: inherit; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    background: none; border: none; color: var(--secondary-blue); cursor: pointer; padding: 2px 7px 2px 0;
+    border-right: 1px solid var(--border-light); outline: none; transition: color 0.15s ease;
+  }
+  .sched-preset-btn:last-child { border-right: none; padding-right: 0; }
+  .sched-preset-btn:hover { color: var(--primary-blue); text-decoration: underline; }
+  .sched-preset-btn:focus-visible { text-decoration: underline; }
+
+  /* Time inputs styled to match the app's own type and pill language instead
+     of looking like a bare native control — same font, weight and rounded
+     border treatment as the day pills next to them. */
+  .schedule-time-row input[type="time"],
+  .schedule-time-row-compact input[type="time"] {
+    font-family: inherit; font-size: 12px; font-weight: 700; color: var(--text-dark);
+    letter-spacing: 0.02em; padding: 8px 10px; border: 1.5px solid var(--border-mid);
+    border-radius: var(--radius-sm); background: #fff; outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .schedule-time-row input[type="time"]:hover,
+  .schedule-time-row-compact input[type="time"]:hover { border-color: var(--text-faint); }
+  .schedule-time-row input[type="time"]:focus,
+  .schedule-time-row-compact input[type="time"]:focus {
+    border-color: var(--secondary-blue); box-shadow: 0 0 0 3px rgba(40, 143, 194, 0.15);
+  }
+  .schedule-time-row input[type="time"]::-webkit-calendar-picker-indicator { opacity: 0.55; }
+  .sched-time-label { font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 5px; }
+
+  /* Compact inline time row used inside the Account Duty Schedule modal, so a
+     long account list doesn't repeat two full labeled columns per row. */
+  .schedule-time-row-compact { align-items: center; gap: 10px; }
+  .sched-time-compact-label {
+    display: inline-flex; align-items: center;
+    font-size: 10.5px; color: var(--text-faint); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .sched-time-arrow { color: var(--text-faint); font-size: 13px; }
+
+  /* ---- Account Duty Schedule modal ---- */
+  .sched-account-list { display: flex; flex-direction: column; gap: 16px; }
+  .sched-account-row {
+    border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 18px 20px; background: #fff;
+    transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.15s ease;
+  }
+  .sched-account-row:hover { border-color: var(--border-mid); box-shadow: var(--shadow-xs); }
+  /* Briefly flashes the row a jump-to-account shortcut landed on */
+  .sched-account-row.flash-highlight {
+    background: #fff7d6; border-color: var(--warning-yellow);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+  }
+  .sched-account-row-header { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; }
+  .sched-account-swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--border-mid); }
+  .sched-account-swatch.acc-palette-1 { background: var(--acc-palette-1-border); }
+  .sched-account-swatch.acc-palette-2 { background: var(--acc-palette-2-border); }
+  .sched-account-swatch.acc-palette-3 { background: var(--acc-palette-3-border); }
+  .sched-account-swatch.acc-palette-4 { background: var(--acc-palette-4-border); }
+  .sched-account-swatch.acc-palette-5 { background: var(--acc-palette-5-border); }
+  .sched-account-name { font-weight: 700; font-size: 13px; color: var(--primary-blue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  /* Live preview that updates as day pills / times change, right-aligned so
+     the whole row reads name-left, current schedule-right at a glance. */
+  .sched-account-row-summary { margin-left: auto; font-size: 11px; color: var(--text-faint); font-weight: 600; text-align: right; white-space: nowrap; }
+
+  /* Floats just the Save button in the lower-right corner of the modal while
+     scrolling, instead of a full-width bar — the wrapper itself has no
+     background and lets clicks/scroll pass through everywhere except the
+     button. */
+  .sched-modal-actions {
+    position: sticky; bottom: 16px; z-index: 5;
+    display: flex; justify-content: flex-end;
+    margin-top: 18px; padding: 0 2px; pointer-events: none;
+  }
+  .sched-modal-actions .primary {
+    pointer-events: auto; border-radius: 999px; padding: 10px 22px;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.24), 0 2px 8px rgba(15, 23, 42, 0.12);
+  }
   .panel select.field-invalid {
     border-color: var(--danger-red) !important;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
@@ -650,7 +835,7 @@
     25% { transform: translateX(-4px); }
     75% { transform: translateX(4px); }
   }
-  .panel-actions { display: flex; gap: 8px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding-top: 4px; }
+  .panel-actions { display: flex; gap: 8px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding-top: 14px; border-top: 1.5px solid var(--border-light); }
 
   /* ============ Buttons ============ */
   button {
@@ -737,18 +922,20 @@
   .modal-overlay.open .modal-container, .modal-overlay.active-modal .modal-container {
     transform: scale(1) translateY(0); opacity: 1;
   }
+  #scheduleModal .modal-container { max-width: 660px; }
   .modal-header {
     background: linear-gradient(120deg, var(--primary-blue), var(--primary-blue-deep)); color: #fff; padding: 15px 20px;
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
     border-bottom: 3px solid var(--accent-orange);
   }
   .modal-header h3 { margin: 0; font-size: 14.5px; font-weight: 700; }
+  .modal-header-sub { margin: 4px 0 0; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.72); max-width: 480px; line-height: 1.4; }
   .modal-close {
     background: rgba(255,255,255,0.12); border: none; color: #fff; font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1;
     transition: background 0.12s ease, transform 0.12s ease;
   }
   .modal-close:hover { background: rgba(255,255,255,0.24); }
-  .modal-body { padding: 18px; overflow-y: auto; flex: 1; }
+  .modal-body { padding: 22px; overflow-y: auto; flex: 1; }
 
   .custom-dialog-box {
     background: #ffffff;
@@ -828,8 +1015,8 @@
     .seat { height: 54px; font-size: 9.5px; }
     .stat-chip { min-width: 76px; padding: 8px 12px; }
     .legend-bar { font-size: 10px; gap: 10px; }
-    .panel-row { gap: 10px; }
-    .panel input[type="text"], .panel select { min-width: 130px; width: 100%; }
+    .panel-body { flex-direction: column; gap: 16px; }
+    .panel input[type="text"], .panel select { width: 100%; }
   }
 
   @media (max-width: 560px) {
@@ -872,6 +1059,18 @@
     }
     .header, .tabs, .stats-bar, .quick-actions, .legend-bar, .card-header button, .card-header select, .floating-save-bar, .help-fab-wrap, .panel, .modal-overlay, .toolbar-btn, #modeBadge, .toast-notification, #webNotification {
       display: none !important;
+    }
+    /* Duty-status dots (on duty / off duty / resigned) and the new-hire star
+       are working-view indicators, not part of the printed seat plan — hide
+       them so the exported PDF shows just names, teams, and seat IDs. */
+    .schedule-dot, .seat.new-hire::before {
+      display: none !important;
+    }
+    /* The currently-selected/open seat's highlight outline is an editing
+       aid, not part of the seat plan itself — don't let it show up in the
+       exported PDF. */
+    .seat.selected {
+      outline: none !important; box-shadow: none !important;
     }
     .wrap {
       max-width: 100% !important;

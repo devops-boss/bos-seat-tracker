@@ -41,6 +41,48 @@ let opsAccounts = SITE_OPS_ACCOUNTS[currentSite];
 
 let notificationTimer = null;
 
+// ---- Agent Duty Schedules ----
+// A baseline duty schedule is set per ACCOUNT (per site, since account rosters
+// are scoped per site — see SITE_OPS_ACCOUNTS above). Any individual seat can
+// then override that baseline with its own custom schedule from the seat edit
+// panel, for the agents whose hours differ from the rest of their account.
+const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const WEEKDAY_LABELS = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
+const CLOCK_ICON_SVG = '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:4px;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg>';
+
+function freshScheduleTemplate() {
+  return {
+    days: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: false, sun: false },
+    start: '20:00',
+    end: '05:00'
+  };
+}
+
+let siteAccountSchedules = {
+  'HQ Seat Plan': {},
+  'Candelaria Seat Plan': {}
+};
+// Tracks whether the Account Duty Schedule modal has unsaved edits, so
+// closing it accidentally (✕ button, backdrop click) can confirm first
+// instead of silently discarding changes.
+let scheduleModalDirty = false;
+
+function getAccountSchedule(team) {
+  if (!team) return null;
+  const map = siteAccountSchedules[currentSite] || {};
+  return map[team] || null;
+}
+
+// Every account name currently assigned to any OPS in a site, plus "Team
+// Lead" (which behaves like a pseudo-account in the team dropdown already).
+function allAccountsForSite(site) {
+  const map = SITE_OPS_ACCOUNTS[site] || {};
+  const set = new Set();
+  Object.values(map).forEach(list => (list || []).forEach(a => { if (a) set.add(a); }));
+  set.add('Team Lead');
+  return Array.from(set).sort();
+}
+
 function showWebDialog({ title, message, type = 'alert', placeholder = '', defaultValue = '', onConfirm }) {
   const overlay = document.getElementById('customDialogOverlay');
   const titleEl = document.getElementById('dialogTitle');
@@ -919,7 +961,7 @@ function allSeatIds(ops) { return allSeatIdsUsing(ops, ROOM_LAYOUTS); }
 
 function emptySeatsUsing(ops, layouts) {
   const s = {};
-  allSeatIdsUsing(ops, layouts).forEach(id => { s[id] = { occupant: '', team: '', status: 'vacant', isNewHire: false }; });
+  allSeatIdsUsing(ops, layouts).forEach(id => { s[id] = { occupant: '', team: '', status: 'vacant', isNewHire: false, isResigned: false, scheduleMode: 'account', schedule: null }; });
   return s;
 }
 
@@ -952,6 +994,9 @@ async function loadDB() {
       if (payload && payload.opsAccounts) {
         Object.assign(SITE_OPS_ACCOUNTS, payload.opsAccounts);
       }
+      if (payload && payload.accountSchedules) {
+        Object.assign(siteAccountSchedules, payload.accountSchedules);
+      }
       loadedFromServer = true;
     }
   } catch (e) {
@@ -973,6 +1018,12 @@ async function loadDB() {
           // Migrate pre-multi-site flat account list (was HQ-only) into the new namespace.
           SITE_OPS_ACCOUNTS['HQ Seat Plan'] = parsedAcc;
         }
+      }
+
+      let schedRaw = localStorage.getItem(STORAGE_PREFIX + 'account-schedules');
+      if (schedRaw) {
+        const parsedSched = JSON.parse(schedRaw);
+        if (parsedSched) Object.assign(siteAccountSchedules, parsedSched);
       }
     } catch (e) {}
   }
@@ -1020,7 +1071,7 @@ async function saveDB() {
     await fetch('/api/state', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dbState, opsAccounts: SITE_OPS_ACCOUNTS })
+      body: JSON.stringify({ dbState, opsAccounts: SITE_OPS_ACCOUNTS, accountSchedules: siteAccountSchedules })
     });
   } catch (e) {
     // Server briefly unreachable — the localStorage mirror below still keeps
@@ -1031,6 +1082,7 @@ async function saveDB() {
   try {
     localStorage.setItem(storageKey(), JSON.stringify(dbState));
     localStorage.setItem(STORAGE_PREFIX + 'ops-accounts', JSON.stringify(SITE_OPS_ACCOUNTS));
+    localStorage.setItem(STORAGE_PREFIX + 'account-schedules', JSON.stringify(siteAccountSchedules));
   } catch (e) {}
 }
 
@@ -1253,6 +1305,9 @@ async function handleDrop(e, targetId) {
       room.draftSeats[sid].team = '';
       room.draftSeats[sid].status = 'vacant';
       room.draftSeats[sid].isNewHire = false;
+      room.draftSeats[sid].isResigned = false;
+      room.draftSeats[sid].scheduleMode = 'account';
+      room.draftSeats[sid].schedule = null;
     }
   });
 
@@ -1274,6 +1329,191 @@ function getAccountPaletteClass(teamName) {
   }
   const paletteIndex = (index % 5) + 1;
   return 'acc-palette-' + paletteIndex;
+}
+
+// Returns the schedule that actually governs this seat: its own custom
+// schedule if it has one set, otherwise its account's baseline (or null if
+// neither exists yet).
+function resolveSeatSchedule(seat) {
+  if (!seat) return null;
+  if (seat.scheduleMode === 'custom' && seat.schedule) return seat.schedule;
+  return getAccountSchedule(seat.team);
+}
+
+// Handles overnight shifts (e.g. 8PM–5AM) that cross midnight, by also
+// checking whether "yesterday's" shift is still running into this morning.
+function isWithinSchedule(schedule) {
+  if (!schedule || !schedule.start || !schedule.end) return false;
+  const now = new Date();
+  const todayKey = DAY_ORDER[(now.getDay() + 6) % 7];
+  const yesterdayKey = DAY_ORDER[(now.getDay() + 5) % 7];
+  const minutesNow = now.getHours() * 60 + now.getMinutes();
+
+  const [sh, sm] = schedule.start.split(':').map(Number);
+  const [eh, em] = schedule.end.split(':').map(Number);
+  const startMin = (sh * 60) + sm;
+  const endMin = (eh * 60) + em;
+  const overnight = endMin <= startMin;
+
+  if (overnight) {
+    if (schedule.days[yesterdayKey] && minutesNow < endMin) return true;
+    if (schedule.days[todayKey] && minutesNow >= startMin) return true;
+    return false;
+  }
+  return !!schedule.days[todayKey] && minutesNow >= startMin && minutesNow < endMin;
+}
+
+// null = no dot (vacant seat). 'green' = on shift now. 'gray' = off shift
+// (or no schedule configured yet). 'red' = resigned/rendering, overrides all.
+function computeSeatDotStatus(seat) {
+  if (!seat || !seat.occupant) return null;
+  if (seat.isResigned) return 'red';
+  const schedule = resolveSeatSchedule(seat);
+  if (!schedule) return 'gray';
+  return isWithinSchedule(schedule) ? 'green' : 'gray';
+}
+
+function formatTime12(hhmm) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  let hour12 = h % 12;
+  if (hour12 === 0) hour12 = 12;
+  return hour12 + ':' + String(m).padStart(2, '0') + ' ' + period;
+}
+
+function scheduleSummaryText(schedule) {
+  if (!schedule) return 'No schedule set';
+  const activeDays = DAY_ORDER.filter(k => schedule.days[k]).map(k => WEEKDAY_LABELS[k]);
+  const dayLabel = activeDays.length ? activeDays.join(', ') : 'No days set';
+  return dayLabel + ' • ' + formatTime12(schedule.start) + '–' + formatTime12(schedule.end);
+}
+
+function scheduleDotTooltip(seat, status) {
+  if (status === 'red') return 'Resigned / Rendering';
+  const schedule = resolveSeatSchedule(seat);
+  const prefix = status === 'green' ? 'On Duty — ' : 'Off Duty — ';
+  return prefix + scheduleSummaryText(schedule);
+}
+
+// ---- Reusable day-checkbox + start/end time field group ----
+// Used both inside the seat edit panel (custom per-agent schedule) and inside
+// the Schedule Manager modal (per-account baseline rows), so the markup and
+// read/write logic stay in exactly one place.
+function scheduleFieldsHtml() {
+  const daysHtml = DAY_ORDER.map(d =>
+    '<button type="button" class="sched-day-toggle" data-day="' + d + '">' + WEEKDAY_LABELS[d] + '</button>'
+  ).join('');
+  return (
+    '<div class="schedule-days-row">' + daysHtml + '</div>' +
+    '<div class="schedule-time-row">' +
+      '<div><label class="sched-time-label">Shift Start</label><input type="time" class="sched-start-input"></div>' +
+      '<div><label class="sched-time-label">Shift End</label><input type="time" class="sched-end-input"></div>' +
+    '</div>'
+  );
+}
+
+// Compact variant of the same fields for the Account Duty Schedule modal,
+// where the full "Shift Start"/"Shift End" labels would repeat once per
+// account row and add up to a lot of visual noise. Same underlying
+// .sched-day-toggle / .sched-start-input / .sched-end-input classes, so
+// setScheduleFields()/readScheduleFields() work on it unchanged. Also adds a
+// row of one-click day presets (Weekdays / Weekend / All / Clear) since most
+// accounts follow one of a handful of common patterns.
+function scheduleFieldsHtmlCompact() {
+  const daysHtml = DAY_ORDER.map(d =>
+    '<button type="button" class="sched-day-toggle" data-day="' + d + '">' + WEEKDAY_LABELS[d] + '</button>'
+  ).join('');
+  const presetsHtml = [
+    ['weekdays', 'Weekdays'], ['weekend', 'Weekend'], ['all', 'All Days'], ['clear', 'Clear']
+  ].map(([key, label]) => '<button type="button" class="sched-preset-btn" data-preset="' + key + '">' + label + '</button>').join('');
+  return (
+    '<div class="sched-preset-row">' + presetsHtml + '</div>' +
+    '<div class="schedule-days-row">' + daysHtml + '</div>' +
+    '<div class="schedule-time-row schedule-time-row-compact">' +
+      '<span class="sched-time-compact-label">' + CLOCK_ICON_SVG + 'Shift</span>' +
+      '<input type="time" class="sched-start-input">' +
+      '<span class="sched-time-arrow">→</span>' +
+      '<input type="time" class="sched-end-input">' +
+    '</div>'
+  );
+}
+
+// Day pills toggle their own 'active' state on click — delegated once here so
+// it works for every instance of scheduleFieldsHtml() (seat panel, quickfill,
+// and every per-account row in the Schedule Manager modal), even the ones
+// built dynamically after this listener is attached.
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.sched-day-toggle');
+  if (!btn) return;
+  btn.classList.toggle('active');
+  refreshScheduleRowSummary(btn.closest('.sched-account-row'));
+});
+document.addEventListener('input', function(e) {
+  if (!e.target.matches('.sched-start-input, .sched-end-input')) return;
+  refreshScheduleRowSummary(e.target.closest('.sched-account-row'));
+});
+
+// One-click day presets (Weekdays / Weekend / All Days / Clear) inside the
+// Account Duty Schedule modal — sets the day pills' active state directly
+// rather than duplicating the read/toggle logic.
+const SCHED_PRESETS = {
+  weekdays: ['mon', 'tue', 'wed', 'thu', 'fri'],
+  weekend: ['sat', 'sun'],
+  all: DAY_ORDER.slice(),
+  clear: []
+};
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.sched-preset-btn');
+  if (!btn) return;
+  const fieldsScope = btn.closest('.sched-account-row-body') || btn.parentElement.parentElement;
+  const activeDays = SCHED_PRESETS[btn.dataset.preset] || [];
+  fieldsScope.querySelectorAll('.sched-day-toggle').forEach(dayBtn => {
+    dayBtn.classList.toggle('active', activeDays.includes(dayBtn.dataset.day));
+  });
+  refreshScheduleRowSummary(btn.closest('.sched-account-row'));
+});
+
+// Marks the Account Duty Schedule modal dirty on any edit inside it, so
+// closeScheduleModal() knows to confirm before discarding.
+(function() {
+  const modalEl = document.getElementById('scheduleModal');
+  modalEl.addEventListener('click', e => {
+    if (e.target.closest('.sched-day-toggle, .sched-preset-btn')) scheduleModalDirty = true;
+  });
+  modalEl.addEventListener('input', e => {
+    if (e.target.matches('.sched-start-input, .sched-end-input')) scheduleModalDirty = true;
+  });
+})();
+
+// Keeps the small live preview text in an Account Duty Schedule row (e.g.
+// "Mon, Tue, Wed • 8:00 PM–5:00 AM") in sync as the person clicks day pills
+// or changes the time fields, so they get instant feedback without having to
+// mentally parse a row of pills.
+function refreshScheduleRowSummary(row) {
+  if (!row) return;
+  const summaryEl = row.querySelector('.sched-account-row-summary');
+  if (!summaryEl) return;
+  summaryEl.textContent = scheduleSummaryText(readScheduleFields(row));
+}
+
+function setScheduleFields(container, schedule) {
+  const sched = schedule || freshScheduleTemplate();
+  container.querySelectorAll('.sched-day-toggle').forEach(btn => {
+    btn.classList.toggle('active', !!sched.days[btn.dataset.day]);
+  });
+  const startEl = container.querySelector('.sched-start-input');
+  const endEl = container.querySelector('.sched-end-input');
+  if (startEl) startEl.value = sched.start || '20:00';
+  if (endEl) endEl.value = sched.end || '05:00';
+}
+
+function readScheduleFields(container) {
+  const days = {};
+  container.querySelectorAll('.sched-day-toggle').forEach(btn => { days[btn.dataset.day] = btn.classList.contains('active'); });
+  const startEl = container.querySelector('.sched-start-input');
+  const endEl = container.querySelector('.sched-end-input');
+  return { days, start: (startEl && startEl.value) || '20:00', end: (endEl && endEl.value) || '05:00' };
 }
 
 function seatEl(id, isLead = false) {
@@ -1311,6 +1551,14 @@ function seatEl(id, isLead = false) {
   div.innerHTML = '<span class="occ">' + (seat.occupant ? seat.occupant : fallback) + '</span>' +
                   (seat.team ? '<span class="team">' + seat.team + '</span>' : '') +
                   '<span class="sid">' + id + '</span>';
+
+  const dotStatus = computeSeatDotStatus(seat);
+  if (dotStatus) {
+    const dot = document.createElement('span');
+    dot.className = 'schedule-dot dot-' + dotStatus;
+    dot.title = scheduleDotTooltip(seat, dotStatus);
+    div.appendChild(dot);
+  }
 
   if (!viewingSnapshotSeats) {
     div.addEventListener('click', () => openPanel(id));
@@ -1604,9 +1852,32 @@ function openPanel(id) {
   
   populateAccountDropdown(seat.team || '');
 
-  document.getElementById('newHireInput').checked = !!seat.isNewHire;
+  document.getElementById('newHireInput').classList.toggle('active', !!seat.isNewHire);
+  document.getElementById('resignedInput').classList.toggle('active', !!seat.isResigned);
+  updateStatusPreview();
+
+  const scheduleModeInput = document.getElementById('scheduleModeInput');
+  scheduleModeInput.value = seat.scheduleMode === 'custom' ? 'custom' : 'account';
+  updateSchedulePreview(seat.team || '');
+  setScheduleFields(document.getElementById('scheduleCustomFields'), seat.schedule || getAccountSchedule(seat.team) || freshScheduleTemplate());
+  toggleScheduleCustomFields();
+
   document.getElementById('panel').classList.add('open');
   document.getElementById('occInput').focus();
+}
+
+function updateSchedulePreview(team) {
+  const textEl = document.getElementById('scheduleAccountPreviewText');
+  if (!textEl) return;
+  textEl.textContent = 'Account default: ' + scheduleSummaryText(getAccountSchedule(team));
+  const btn = document.getElementById('openAccountScheduleBtn');
+  if (btn) btn.dataset.team = team || '';
+}
+
+function toggleScheduleCustomFields() {
+  const mode = document.getElementById('scheduleModeInput').value;
+  document.getElementById('scheduleCustomFields').style.display = mode === 'custom' ? 'block' : 'none';
+  document.getElementById('scheduleAccountPreview').style.display = mode === 'custom' ? 'none' : 'block';
 }
 
 function closePanel() {
@@ -1641,10 +1912,15 @@ async function saveSeatEdit() {
       const occInput = document.getElementById('occInput');
       const teamInput = document.getElementById('teamInput');
       const newHireInput = document.getElementById('newHireInput');
+      const resignedInput = document.getElementById('resignedInput');
+      const scheduleModeInput = document.getElementById('scheduleModeInput');
 
       let newOccupant = occInput.value.trim();
       let newTeam = teamInput.value;
-      let isNewHire = newHireInput.checked;
+      let isNewHire = newHireInput.classList.contains('active');
+      let isResigned = resignedInput.classList.contains('active');
+      let scheduleMode = scheduleModeInput.value === 'custom' ? 'custom' : 'account';
+      let customSchedule = scheduleMode === 'custom' ? readScheduleFields(document.getElementById('scheduleCustomFields')) : null;
       let newStatus = 'vacant';
 
       if (!newOccupant) {
@@ -1652,6 +1928,9 @@ async function saveSeatEdit() {
         newTeam = '';
         newStatus = 'vacant';
         isNewHire = false;
+        isResigned = false;
+        scheduleMode = 'account';
+        customSchedule = null;
       } else {
         newStatus = isNewHire ? 'training' : 'occupied';
       }
@@ -1666,7 +1945,10 @@ async function saveSeatEdit() {
         occupant: newOccupant,
         team: newTeam,
         status: newStatus,
-        isNewHire: isNewHire
+        isNewHire: isNewHire,
+        isResigned: isResigned,
+        scheduleMode: scheduleMode,
+        schedule: customSchedule
       };
 
       await saveDB();
@@ -1698,7 +1980,10 @@ async function offboardSeat() {
         occupant: '',
         team: '',
         status: 'vacant',
-        isNewHire: false
+        isNewHire: false,
+        isResigned: false,
+        scheduleMode: 'account',
+        schedule: null
       };
 
       await saveDB();
@@ -1845,6 +2130,117 @@ function closeHistoryModal() {
   document.getElementById('historyModal').classList.remove('open');
 }
 
+// ---- Account Duty Schedule Manager ----
+// Sets a baseline schedule per account (for this site) so most agents never
+// need an individual override — an agent's seat only needs the "Custom
+// Schedule" option in the edit panel when their hours differ from the rest
+// of their account.
+function openScheduleModal(focusAccount) {
+  document.getElementById('scheduleModalSite').textContent = currentSite;
+  scheduleModalDirty = false;
+  const accounts = allAccountsForSite(currentSite);
+  const body = document.getElementById('scheduleModalBody');
+  body.innerHTML = '';
+
+  const list = document.createElement('div');
+  list.className = 'sched-account-list';
+  const siteSchedules = siteAccountSchedules[currentSite] || {};
+  accounts.forEach(acc => {
+    const row = document.createElement('div');
+    row.className = 'sched-account-row';
+    row.dataset.account = acc;
+
+    row.innerHTML =
+      '<div class="sched-account-row-header">' +
+        '<span class="sched-account-swatch ' + getAccountPaletteClass(acc) + '"></span>' +
+        '<span class="sched-account-name">' + escapeHtml(acc) + '</span>' +
+        '<span class="sched-account-row-summary"></span>' +
+      '</div>' +
+      '<div class="sched-account-row-body">' + scheduleFieldsHtmlCompact() + '</div>';
+
+    list.appendChild(row);
+    setScheduleFields(row, siteSchedules[acc]);
+    refreshScheduleRowSummary(row);
+  });
+  body.appendChild(list);
+
+  const actions = document.createElement('div');
+  actions.className = 'sched-modal-actions';
+  actions.innerHTML = '<button class="primary" id="schedSaveAllBtn">Save All Schedules</button>';
+  body.appendChild(actions);
+
+  document.getElementById('schedSaveAllBtn').addEventListener('click', async () => {
+    const updated = {};
+    list.querySelectorAll('.sched-account-row').forEach(row => {
+      updated[row.dataset.account] = readScheduleFields(row);
+    });
+    siteAccountSchedules[currentSite] = updated;
+    await saveDB();
+    scheduleModalDirty = false;
+    closeScheduleModal();
+    renderFloor();
+    showNotification('Account schedules saved for ' + currentSite + '.', 'success', true);
+  });
+
+  document.getElementById('scheduleModal').classList.add('open');
+
+  // If we were opened as a shortcut from a specific agent's seat panel,
+  // scroll straight to that account's row and flash it so it's easy to find
+  // among a long account list.
+  if (focusAccount) {
+    const targetRow = list.querySelector('.sched-account-row[data-account="' + CSS.escape(focusAccount) + '"]');
+    if (targetRow) {
+      setTimeout(() => {
+        targetRow.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        targetRow.classList.add('flash-highlight');
+        setTimeout(() => targetRow.classList.remove('flash-highlight'), 1800);
+      }, 50);
+    }
+  }
+}
+
+function closeScheduleModal() {
+  if (scheduleModalDirty) {
+    showWebDialog({
+      title: 'Discard Changes?',
+      message: 'You have unsaved schedule changes. Close without saving?',
+      type: 'confirm',
+      onConfirm: () => {
+        scheduleModalDirty = false;
+        document.getElementById('scheduleModal').classList.remove('open');
+      }
+    });
+    return;
+  }
+  document.getElementById('scheduleModal').classList.remove('open');
+}
+window.closeScheduleModal = closeScheduleModal;
+
+// Re-checks every rendered seat's on-duty/off-duty dot against the current
+// time, without a full floor re-render (so it won't interrupt a drag, an
+// open edit panel, or scroll position). Resigned (red) seats never change
+// here since that state isn't time-based.
+function updateScheduleDots() {
+  const displaySeats = getActiveDisplaySeats();
+  document.querySelectorAll('#floorRoot .seat[data-seat-id]').forEach(el => {
+    const id = el.dataset.seatId;
+    const seat = displaySeats[id];
+    const dotStatus = computeSeatDotStatus(seat);
+    let dot = el.querySelector('.schedule-dot');
+    if (!dotStatus) {
+      if (dot) dot.remove();
+      return;
+    }
+    if (!dot) {
+      dot = document.createElement('span');
+      el.appendChild(dot);
+    }
+    dot.className = 'schedule-dot dot-' + dotStatus;
+    dot.title = scheduleDotTooltip(seat, dotStatus);
+  });
+}
+setInterval(updateScheduleDots, 30000);
+
 window.deleteSnapshotVersion = function(versionId) {
   const room = dbState[dbKey(currentOps)];
   const targetSnap = room.snapshots.find(s => s.versionId === versionId);
@@ -1922,6 +2318,44 @@ window.exitSnapshotPreview = function() {
 
 document.getElementById('teamInput').addEventListener('change', function() {
   this.classList.remove('field-invalid');
+  updateSchedulePreview(this.value);
+});
+
+document.getElementById('scheduleModeInput').addEventListener('change', toggleScheduleCustomFields);
+
+// New Hire / Resigned status toggles — plain click-to-toggle buttons (same
+// interaction language as the day pills), not checkboxes. The two are
+// mutually exclusive: an agent who has resigned isn't also "under training",
+// so turning Resigned on clears New Hire automatically.
+document.getElementById('newHireInput').addEventListener('click', function() {
+  this.classList.toggle('active');
+  if (this.classList.contains('active')) document.getElementById('resignedInput').classList.remove('active');
+  updateStatusPreview();
+});
+document.getElementById('resignedInput').addEventListener('click', function() {
+  this.classList.toggle('active');
+  if (this.classList.contains('active')) document.getElementById('newHireInput').classList.remove('active');
+  updateStatusPreview();
+});
+
+// Keeps the small helper line under the Status toggles in sync, so it's
+// always clear what will actually show up on the floor plan for this seat.
+function updateStatusPreview() {
+  const el = document.getElementById('statusPreviewText');
+  if (!el) return;
+  const isNewHire = document.getElementById('newHireInput').classList.contains('active');
+  const isResigned = document.getElementById('resignedInput').classList.contains('active');
+  if (isResigned) {
+    el.textContent = 'This seat will show a red status dot on the floor plan.';
+  } else if (isNewHire) {
+    el.textContent = 'This seat will show a ★ next to the agent\'s name.';
+  } else {
+    el.textContent = 'No special status — shown as a regular occupied seat.';
+  }
+}
+
+document.getElementById('openAccountScheduleBtn').addEventListener('click', function() {
+  openScheduleModal(this.dataset.team || '');
 });
 
 document.getElementById('addAccountBtn').addEventListener('click', async () => {
@@ -2081,6 +2515,11 @@ document.getElementById('closeModalBtn').addEventListener('click', closeHistoryM
 
 document.getElementById('historyModal').addEventListener('click', (e) => {
   if (e.target.id === 'historyModal') closeHistoryModal();
+});
+
+document.getElementById('closeScheduleModalBtn').addEventListener('click', closeScheduleModal);
+document.getElementById('scheduleModal').addEventListener('click', (e) => {
+  if (e.target.id === 'scheduleModal') closeScheduleModal();
 });
 
 document.getElementById('customDialogOverlay').addEventListener('click', (e) => {

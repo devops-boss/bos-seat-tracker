@@ -97,8 +97,10 @@
     </div>
 
     <div class="legend-bar">
-      <span class="legend-item"><span class="legend-swatch swatch-vacant"></span>Vacant</span>
       <span class="legend-item"><span class="legend-swatch swatch-newhire"></span>New Hire</span>
+      <span class="legend-item"><span class="legend-dot dot-green"></span>On Duty Now</span>
+      <span class="legend-item"><span class="legend-dot dot-gray"></span>Off Duty</span>
+      <span class="legend-item"><span class="legend-dot dot-red"></span>Resigned / Rendering</span>
       <span class="legend-note">Occupied seats are colored per account</span>
     </div>
 
@@ -108,29 +110,87 @@
         <span>Edit Seat (<span id="panelSeatIdLabel"></span>)</span>
         <button class="subtle" style="padding:1px 6px; font-size:10.5px;" onclick="closePanel()">✕ Close</button>
       </div>
-      <div class="panel-row">
-        <div>
-          <label>Occupant Name</label>
-          <input type="text" id="occInput" placeholder="Agent name">
-        </div>
-        <div>
-          <label>Team / Account <span class="req-mark" title="Required">*</span></label>
-          <select id="teamInput">
-            <option value="">-- Select Account --</option>
-          </select>
-          <div style="display: flex; gap: 4px; margin-top: 4px;">
-            <button type="button" class="subtle" id="addAccountBtn" style="padding:3px 6px; font-size:10px;">+ Add Account</button>
-            <button type="button" class="subtle" id="removeAccountBtn" style="padding:3px 6px; font-size:10px; color:#b91c1c;">- Remove Account</button>
+
+      <div class="panel-body">
+        <div class="panel-col">
+          <div class="panel-section-title">Agent Details</div>
+
+          <div class="field-group">
+            <label>Occupant Name</label>
+            <input type="text" id="occInput" placeholder="Agent name">
           </div>
-        </div>
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: 4px; flex-wrap: wrap;">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <input type="checkbox" id="newHireInput" style="min-width: auto; width: 16px; height: 16px; cursor: pointer;">
-            <label for="newHireInput" style="margin: 0; cursor: pointer; color: var(--text-dark); font-weight: 600; font-size: 11px;">New Hire / Under Training (★)</label>
+
+          <div class="field-group">
+            <label>Team / Account <span class="req-mark" title="Required">*</span></label>
+            <select id="teamInput">
+              <option value="">-- Select Account --</option>
+            </select>
+            <div class="account-btn-row">
+              <button type="button" class="subtle" id="addAccountBtn">+ Add Account</button>
+              <button type="button" class="subtle danger-text" id="removeAccountBtn">- Remove Account</button>
+            </div>
           </div>
-          <button type="button" class="subtle" id="clearNewHireBtn" style="padding:3px 6px; font-size:10px;" title="Removes the ★ New Hire tag from every seat in this OPS">★ Clear New Hire Tags</button>
+
+          <div class="panel-section-title panel-section-title-sub">Status</div>
+
+          <div class="status-toggle-row">
+            <button type="button" class="status-toggle status-toggle-newhire" id="newHireInput">
+              <span class="status-toggle-indicator"></span>
+              <span>New Hire / Under Training (★)</span>
+            </button>
+            <button type="button" class="subtle" id="clearNewHireBtn" title="Removes the ★ New Hire tag from every seat in this OPS">★ Clear Tags</button>
+          </div>
+
+          <button type="button" class="status-toggle status-toggle-resigned" id="resignedInput">
+            <span class="status-toggle-indicator"></span>
+            <span>Resigned / Rendering</span>
+          </button>
+
+          <div class="status-preview" id="statusPreviewText"></div>
+        </div>
+
+        <div class="panel-col">
+          <div class="panel-section-title">Duty Schedule</div>
+
+          <div class="field-group">
+            <select id="scheduleModeInput">
+              <option value="account">Follow Account Default</option>
+              <option value="custom">Custom Schedule for This Agent</option>
+            </select>
+          </div>
+
+          <div id="scheduleAccountPreview" class="schedule-account-preview">
+            <span id="scheduleAccountPreviewText"></span>
+          </div>
+
+          <div id="scheduleCustomFields" class="schedule-custom-fields" style="display:none;">
+            <div class="schedule-days-row">
+              <button type="button" class="sched-day-toggle" data-day="mon">Mon</button>
+              <button type="button" class="sched-day-toggle" data-day="tue">Tue</button>
+              <button type="button" class="sched-day-toggle" data-day="wed">Wed</button>
+              <button type="button" class="sched-day-toggle" data-day="thu">Thu</button>
+              <button type="button" class="sched-day-toggle" data-day="fri">Fri</button>
+              <button type="button" class="sched-day-toggle" data-day="sat">Sat</button>
+              <button type="button" class="sched-day-toggle" data-day="sun">Sun</button>
+            </div>
+            <div class="schedule-time-row">
+              <div>
+                <label class="sched-time-label">Shift Start</label>
+                <input type="time" class="sched-start-input">
+              </div>
+              <div>
+                <label class="sched-time-label">Shift End</label>
+                <input type="time" class="sched-end-input">
+              </div>
+            </div>
+          </div>
+
+          <div class="schedule-manage-row">
+            <button type="button" class="subtle" id="openAccountScheduleBtn">⚙ Manage Account Schedules</button>
+          </div>
         </div>
       </div>
+
       <div class="panel-actions">
         <div>
           <button class="danger" id="offboardBtn" style="padding:5px 10px; font-size:11px;">Offboard / Clear Seat</button>
@@ -164,6 +224,20 @@
   </div>
 </div>
 
+<!-- Account Duty Schedule Manager Modal -->
+<div class="modal-overlay" id="scheduleModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 id="scheduleModalTitle">Account Duty Schedules — <span id="scheduleModalSite"></span></h3>
+        <p class="modal-header-sub">Set the default weekly hours each account's agents work — seats then show a green dot when on shift, gray when off.</p>
+      </div>
+      <button class="modal-close" id="closeScheduleModalBtn">&times;</button>
+    </div>
+    <div class="modal-body" id="scheduleModalBody"></div>
+  </div>
+</div>
+
 <!-- Custom Centered Floating Web Dialog -->
 <div class="modal-overlay" id="customDialogOverlay">
   <div class="custom-dialog-box">
@@ -184,6 +258,8 @@
       <li>Edits are staged as a <strong>draft</strong> first — use <strong>Save Full Seat Plan</strong> to commit them, or <strong>Discard</strong> to cancel.</li>
       <li>Use <strong>Site</strong> (top right of the floor plan) to switch between HQ and Candelaria seat plans.</li>
       <li><strong>Version History</strong> lets you preview or restore a previously committed layout.</li>
+      <li>Open a seat and use <strong>Duty Schedule → ⚙ Manage Account Schedules</strong> to set the default duty hours for every account on the current site — a seat then shows a green dot when that agent is on shift right now, gray when off shift.</li>
+      <li>Use <strong>Duty Schedule</strong> to give one agent a custom schedule instead of the account default, or check <strong>Resigned / Rendering</strong> to mark them with a red dot.</li>
       <li><strong>Export</strong> downloads the current live seat plan to Excel.</li>
     </ul>
   </div>

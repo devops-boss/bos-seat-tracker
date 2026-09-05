@@ -36,7 +36,7 @@ app.get('/healthz', (req, res) => res.type('text/plain').send('ok'));
 // Return the whole saved state (or an empty shell if nothing has been saved yet).
 app.get('/api/state', (req, res) => {
   const row = db.prepare('SELECT data FROM app_state WHERE id = 1').get();
-  if (!row) return res.json({ dbState: {}, opsAccounts: {} });
+  if (!row) return res.json({ dbState: {}, opsAccounts: {}, accountSchedules: {} });
   try {
     res.json(JSON.parse(row.data));
   } catch (e) {
@@ -45,13 +45,16 @@ app.get('/api/state', (req, res) => {
 });
 
 // Overwrite the whole saved state. The frontend always sends the full
-// object (same as it used to write the full object to localStorage).
+// object (same as it used to write the full object to localStorage). We
+// persist the whole request body as-is (not just a fixed set of keys) so
+// that new top-level fields the frontend adds later (e.g. accountSchedules)
+// round-trip correctly without needing a matching server change.
 app.post('/api/state', (req, res) => {
-  const { dbState, opsAccounts } = req.body || {};
-  if (!dbState || typeof dbState !== 'object') {
+  const body = req.body || {};
+  if (!body.dbState || typeof body.dbState !== 'object') {
     return res.status(400).json({ error: 'Missing or invalid dbState.' });
   }
-  const payload = JSON.stringify({ dbState, opsAccounts: opsAccounts || {} });
+  const payload = JSON.stringify(body);
   db.prepare(`
     INSERT INTO app_state (id, data, updated_at) VALUES (1, ?, datetime('now'))
     ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
