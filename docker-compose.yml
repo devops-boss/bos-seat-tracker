@@ -2,7 +2,6 @@ services:
   seat-tracker:
     build:
       context: .
-      network: host
     image: seat-tracker:latest
     container_name: seat-tracker
     restart: unless-stopped
@@ -13,15 +12,14 @@ services:
     networks:
       - seat-tracker-net
  
-  # Tiny backend that persists the app's data to a SQLite file instead of
-  # each browser's localStorage, so everyone sees the same seat plan.
   api:
     build:
       context: ./server
-      network: host
     image: seat-tracker-api:latest
     container_name: seat-tracker-api
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     volumes:
       - seat-tracker-data:/app/data
     networks:
@@ -32,5 +30,4 @@ networks:
     driver: bridge
  
 volumes:
-  # Keeps the SQLite database file on disk across container restarts/redeploys.
   seat-tracker-data:

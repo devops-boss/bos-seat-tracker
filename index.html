@@ -131,26 +131,7 @@
             </div>
           </div>
 
-          <div class="panel-section-title panel-section-title-sub">Status</div>
-
-          <div class="status-toggle-row">
-            <button type="button" class="status-toggle status-toggle-newhire" id="newHireInput">
-              <span class="status-toggle-indicator"></span>
-              <span>New Hire / Under Training (★)</span>
-            </button>
-            <button type="button" class="subtle" id="clearNewHireBtn" title="Removes the ★ New Hire tag from every seat in this OPS">★ Clear Tags</button>
-          </div>
-
-          <button type="button" class="status-toggle status-toggle-resigned" id="resignedInput">
-            <span class="status-toggle-indicator"></span>
-            <span>Resigned / Rendering</span>
-          </button>
-
-          <div class="status-preview" id="statusPreviewText"></div>
-        </div>
-
-        <div class="panel-col">
-          <div class="panel-section-title">Duty Schedule</div>
+          <div class="panel-section-title panel-section-title-sub">Duty Schedule</div>
 
           <div class="field-group">
             <select id="scheduleModeInput">
@@ -188,6 +169,88 @@
           <div class="schedule-manage-row">
             <button type="button" class="subtle" id="openAccountScheduleBtn">⚙ Manage Account Schedules</button>
           </div>
+
+          <div class="status-section-header">
+            <div class="panel-section-title panel-section-title-sub">Status</div>
+            <button type="button" class="status-clear-link" id="clearNewHireBtn" title="Removes the ★ New Hire tag from every seat in this OPS">Clear Tags</button>
+          </div>
+
+          <div class="status-chip-row">
+            <button type="button" class="status-chip status-chip-newhire" id="newHireInput">
+              <span class="status-chip-icon">★</span>
+              <span>New Hire / Training</span>
+            </button>
+            <button type="button" class="status-chip status-chip-resigned" id="resignedInput">
+              <span class="status-chip-dot"></span>
+              <span>Resigned / Rendering</span>
+            </button>
+          </div>
+
+          <div class="status-preview" id="statusPreviewText"></div>
+        </div>
+
+        <div class="panel-col">
+          <div class="panel-section-title">Asset Information</div>
+
+          <div class="field-group">
+            <label>Classification</label>
+            <select id="assetTypeInput">
+              <option value="">-- Select Type --</option>
+              <option value="desktop">Desktop</option>
+              <option value="laptop">Laptop</option>
+            </select>
+          </div>
+
+          <div class="field-row-2">
+            <div class="field-group">
+              <label>Processor Brand</label>
+              <select id="assetProcessorBrandInput">
+                <option value="">-- Select Brand --</option>
+                <option value="intel">Intel</option>
+                <option value="amd">AMD Ryzen</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label>Processor Tier</label>
+              <select id="assetProcessorTierInput" disabled>
+                <option value="">-- Select Brand First --</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label>Memory (RAM)</label>
+            <select id="assetRamInput">
+              <option value="">-- Select RAM --</option>
+              <option value="8">8GB</option>
+              <option value="16">16GB</option>
+              <option value="24">24GB</option>
+              <option value="32">32GB</option>
+            </select>
+          </div>
+
+          <div class="field-row-2">
+            <div class="field-group">
+              <label>SSD Brand</label>
+              <input type="text" id="assetSsdBrandInput" placeholder="e.g. Samsung, WD, Kingston">
+            </div>
+            <div class="field-group">
+              <label>Storage (GB)</label>
+              <input type="number" id="assetSsdStorageInput" min="0" step="1" placeholder="e.g. 512">
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label>Num. of Monitors</label>
+            <select id="assetMonitorsInput">
+              <option value="">-- Select --</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="na">N/A</option>
+            </select>
+          </div>
+
+          <div class="asset-summary" id="assetSummaryText"></div>
         </div>
       </div>
 

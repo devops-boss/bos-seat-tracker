@@ -961,7 +961,7 @@ function allSeatIds(ops) { return allSeatIdsUsing(ops, ROOM_LAYOUTS); }
 
 function emptySeatsUsing(ops, layouts) {
   const s = {};
-  allSeatIdsUsing(ops, layouts).forEach(id => { s[id] = { occupant: '', team: '', status: 'vacant', isNewHire: false, isResigned: false, scheduleMode: 'account', schedule: null }; });
+  allSeatIdsUsing(ops, layouts).forEach(id => { s[id] = { occupant: '', team: '', status: 'vacant', isNewHire: false, isResigned: false, scheduleMode: 'account', schedule: null, asset: freshAssetTemplate() }; });
   return s;
 }
 
@@ -1516,6 +1516,100 @@ function readScheduleFields(container) {
   return { days, start: (startEl && startEl.value) || '20:00', end: (endEl && endEl.value) || '05:00' };
 }
 
+// ---- Seat Asset Information (hardware assigned to a seat) ----
+const PROCESSOR_TIER_LABELS = {
+  intel: { '3': 'Intel Core i3', '5': 'Intel Core i5', '7': 'Intel Core i7', '9': 'Intel Core i9' },
+  amd: { '3': 'AMD Ryzen 3', '5': 'AMD Ryzen 5', '7': 'AMD Ryzen 7', '9': 'AMD Ryzen 9' }
+};
+
+function freshAssetTemplate() {
+  return { type: '', processorBrand: '', processorTier: '', ram: '', ssdBrand: '', ssdStorage: null, monitors: '' };
+}
+
+// Rebuilds the Processor Tier dropdown to match whichever brand is picked
+// (Intel Core i3/i5/i7/i9 vs AMD Ryzen 3/5/7/9), disabling it until a brand
+// is chosen.
+function populateProcessorTierOptions(brand, selectedTier) {
+  const tierSelect = document.getElementById('assetProcessorTierInput');
+  if (!tierSelect) return;
+  tierSelect.innerHTML = '';
+  const tiers = PROCESSOR_TIER_LABELS[brand];
+  if (!tiers) {
+    tierSelect.appendChild(new Option('-- Select Brand First --', ''));
+    tierSelect.disabled = true;
+    tierSelect.value = '';
+    return;
+  }
+  tierSelect.disabled = false;
+  tierSelect.appendChild(new Option('-- Select Tier --', ''));
+  Object.keys(tiers).forEach(tier => {
+    tierSelect.appendChild(new Option(tiers[tier], tier));
+  });
+  tierSelect.value = tiers[selectedTier] ? selectedTier : '';
+}
+
+// Rebuilds the Num. of Monitors dropdown — laptops get a "None" option
+// (no external monitor attached) that desktops don't. "N/A" is always
+// available for seats where a monitor count doesn't apply/isn't tracked.
+function populateMonitorOptions(assetType, selectedMonitors) {
+  const sel = document.getElementById('assetMonitorsInput');
+  if (!sel) return;
+  sel.innerHTML = '';
+  sel.appendChild(new Option('-- Select --', ''));
+  if (assetType === 'laptop') {
+    sel.appendChild(new Option('None', 'none'));
+  }
+  sel.appendChild(new Option('1', '1'));
+  sel.appendChild(new Option('2', '2'));
+  sel.appendChild(new Option('N/A', 'na'));
+  const validValues = ['1', '2', 'na'].concat(assetType === 'laptop' ? ['none'] : []);
+  sel.value = validValues.includes(selectedMonitors) ? selectedMonitors : '';
+}
+
+function readAssetFields() {
+  const typeEl = document.getElementById('assetTypeInput');
+  const brandEl = document.getElementById('assetProcessorBrandInput');
+  const tierEl = document.getElementById('assetProcessorTierInput');
+  const ramEl = document.getElementById('assetRamInput');
+  const ssdBrandEl = document.getElementById('assetSsdBrandInput');
+  const ssdStorageEl = document.getElementById('assetSsdStorageInput');
+  const monitorsEl = document.getElementById('assetMonitorsInput');
+  const storageRaw = ssdStorageEl ? ssdStorageEl.value.trim() : '';
+  return {
+    type: typeEl ? typeEl.value : '',
+    processorBrand: brandEl ? brandEl.value : '',
+    processorTier: tierEl ? tierEl.value : '',
+    ram: ramEl ? ramEl.value : '',
+    ssdBrand: ssdBrandEl ? ssdBrandEl.value.trim() : '',
+    ssdStorage: storageRaw === '' ? null : Math.max(0, parseInt(storageRaw, 10) || 0),
+    monitors: monitorsEl ? monitorsEl.value : ''
+  };
+}
+
+const MONITOR_SUMMARY_LABELS = { '1': '1 Monitor', '2': '2 Monitors', none: 'No External Monitor', na: 'Monitors: N/A' };
+
+// Live one-line recap of the Asset Information fields, shown under the form
+// so the column isn't just a stack of empty inputs and so the current
+// hardware profile is readable at a glance without opening each dropdown.
+function updateAssetSummary() {
+  const el = document.getElementById('assetSummaryText');
+  if (!el) return;
+  const asset = readAssetFields();
+  const parts = [];
+  if (asset.type) parts.push(asset.type === 'laptop' ? 'Laptop' : 'Desktop');
+  const tierLabel = PROCESSOR_TIER_LABELS[asset.processorBrand] && PROCESSOR_TIER_LABELS[asset.processorBrand][asset.processorTier];
+  if (tierLabel) parts.push(tierLabel);
+  if (asset.ram) parts.push(asset.ram + 'GB RAM');
+  if (asset.ssdBrand || asset.ssdStorage) {
+    parts.push([asset.ssdBrand, asset.ssdStorage ? asset.ssdStorage + 'GB' : ''].filter(Boolean).join(' ') + ' SSD');
+  }
+  if (asset.monitors && MONITOR_SUMMARY_LABELS[asset.monitors]) parts.push(MONITOR_SUMMARY_LABELS[asset.monitors]);
+
+  el.innerHTML = '<strong>Asset Summary</strong>' + (parts.length
+    ? parts.join(' &nbsp;•&nbsp; ')
+    : '<span class="asset-summary-empty">Fill in the fields above to see this seat\'s hardware at a glance.</span>');
+}
+
 function seatEl(id, isLead = false) {
   const displaySeats = getActiveDisplaySeats();
   const liveSeats = dbState[dbKey(currentOps)].liveSeats;
@@ -1862,6 +1956,16 @@ function openPanel(id) {
   setScheduleFields(document.getElementById('scheduleCustomFields'), seat.schedule || getAccountSchedule(seat.team) || freshScheduleTemplate());
   toggleScheduleCustomFields();
 
+  const asset = seat.asset || {};
+  document.getElementById('assetTypeInput').value = asset.type || '';
+  document.getElementById('assetProcessorBrandInput').value = asset.processorBrand || '';
+  populateProcessorTierOptions(asset.processorBrand || '', asset.processorTier || '');
+  document.getElementById('assetRamInput').value = asset.ram || '';
+  document.getElementById('assetSsdBrandInput').value = asset.ssdBrand || '';
+  document.getElementById('assetSsdStorageInput').value = (asset.ssdStorage === null || asset.ssdStorage === undefined) ? '' : asset.ssdStorage;
+  populateMonitorOptions(asset.type || '', asset.monitors || '');
+  updateAssetSummary();
+
   document.getElementById('panel').classList.add('open');
   document.getElementById('occInput').focus();
 }
@@ -1922,6 +2026,7 @@ async function saveSeatEdit() {
       let scheduleMode = scheduleModeInput.value === 'custom' ? 'custom' : 'account';
       let customSchedule = scheduleMode === 'custom' ? readScheduleFields(document.getElementById('scheduleCustomFields')) : null;
       let newStatus = 'vacant';
+      let newAsset = readAssetFields();
 
       if (!newOccupant) {
         newOccupant = '';
@@ -1931,6 +2036,7 @@ async function saveSeatEdit() {
         isResigned = false;
         scheduleMode = 'account';
         customSchedule = null;
+        newAsset = freshAssetTemplate();
       } else {
         newStatus = isNewHire ? 'training' : 'occupied';
       }
@@ -1948,7 +2054,8 @@ async function saveSeatEdit() {
         isNewHire: isNewHire,
         isResigned: isResigned,
         scheduleMode: scheduleMode,
-        schedule: customSchedule
+        schedule: customSchedule,
+        asset: newAsset
       };
 
       await saveDB();
@@ -1983,7 +2090,8 @@ async function offboardSeat() {
         isNewHire: false,
         isResigned: false,
         scheduleMode: 'account',
-        schedule: null
+        schedule: null,
+        asset: freshAssetTemplate()
       };
 
       await saveDB();
@@ -2322,6 +2430,25 @@ document.getElementById('teamInput').addEventListener('change', function() {
 });
 
 document.getElementById('scheduleModeInput').addEventListener('change', toggleScheduleCustomFields);
+
+// Asset Information: Processor Tier options depend on which brand is picked
+// (Intel Core i3/i5/i7/i9 vs AMD Ryzen 3/5/7/9), and the Num. of Monitors
+// options gain a "None" choice when the seat's classification is Laptop.
+// Every field also refreshes the live Asset Summary line beneath the form.
+document.getElementById('assetProcessorBrandInput').addEventListener('change', function() {
+  populateProcessorTierOptions(this.value, '');
+  updateAssetSummary();
+});
+document.getElementById('assetTypeInput').addEventListener('change', function() {
+  populateMonitorOptions(this.value, '');
+  updateAssetSummary();
+});
+['assetProcessorTierInput', 'assetRamInput', 'assetMonitorsInput'].forEach(id => {
+  document.getElementById(id).addEventListener('change', updateAssetSummary);
+});
+['assetSsdBrandInput', 'assetSsdStorageInput'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateAssetSummary);
+});
 
 // New Hire / Resigned status toggles — plain click-to-toggle buttons (same
 // interaction language as the day pills), not checkboxes. The two are
@@ -3273,4 +3400,36 @@ initSeatSearch();
   renderStats();
   renderFloatingBar();
   renderFloor();
+})();
+
+// Automatically sync state from server every 2 seconds
+function startAutoSync(intervalMs = 2000) {
+  setInterval(async () => {
+    if (typeof draftState !== 'undefined' && draftState) return;
+    if (typeof viewingSnapshotSeats !== 'undefined' && viewingSnapshotSeats) return;
+ 
+    try {
+      await loadDB();
+      renderFloor();
+    } catch (err) {
+      console.warn('Auto-sync failed:', err);
+    }
+  }, intervalMs);
+}
+ 
+(async function init() {
+  await loadDB();
+  const sitePillLabel = document.getElementById('sitePillLabel');
+  if (sitePillLabel) sitePillLabel.textContent = currentSite;
+  document.querySelectorAll('.site-pill-option').forEach(opt => {
+    opt.classList.toggle('active', opt.getAttribute('data-site') === currentSite);
+  });
+  document.getElementById('floorOpsName').textContent = currentOps;
+  renderTabs();
+  renderStats();
+  renderFloatingBar();
+  renderFloor();
+ 
+  // Start background auto-sync
+  startAutoSync(2000);
 })();

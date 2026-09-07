@@ -670,7 +670,7 @@
   .field-group { display: flex; flex-direction: column; }
   .field-group label,
   .panel label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
-  .panel input[type="text"], .panel select {
+  .panel input[type="text"], .panel input[type="number"], .panel select {
     padding: 8px 11px; border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm);
     font-size: 12.5px; font-family: inherit; width: 100%; outline: none; background: #fff;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -679,45 +679,71 @@
   .panel input:hover, .panel select:hover { border-color: var(--text-faint); }
   .req-mark { color: var(--danger-red); font-weight: 700; }
 
+  /* Two-up field layout used for pairing short Asset Information fields
+     (Processor/RAM, SSD/Monitors) on one line without cramming a full
+     field-group grid system into the panel. */
+  .field-row-2 { display: flex; gap: 10px; }
+  .field-row-2 .field-group { flex: 1 1 0; min-width: 0; }
+
   .account-btn-row { display: flex; gap: 6px; margin-top: 6px; }
   .account-btn-row .subtle { padding: 4px 9px; font-size: 10.5px; flex: 1 1 auto; }
   .subtle.danger-text { color: #b91c1c; }
 
-  /* Status toggle rows (New Hire / Resigned) — plain clickable buttons, same
-     click-to-toggle interaction as the day pills, no checkbox input. The
-     whole row is the click target; a small indicator dot fills in to show
-     the active state. */
-  .status-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .status-toggle-row .subtle { flex-shrink: 0; padding: 6px 10px; font-size: 10.5px; }
-  .status-toggle {
-    display: flex; align-items: center; gap: 9px; flex: 1 1 auto; min-width: 0;
-    padding: 8px 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--border-light);
-    background: var(--bg-alt); cursor: pointer; user-select: none; transition: all 0.15s ease;
-    font-family: inherit; text-align: left; outline: none; appearance: none; width: 100%;
+  /* Status section — "New Hire" and "Resigned" are shown as a pair of
+     equal-width pill chips (same visual language as the day-selector pills)
+     instead of full-width rows, so the section can never balloon in height
+     even when the opposite panel column is taller. "Clear Tags" moves into
+     the section header as a quiet text link rather than crowding the chips. */
+  .status-section-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+  .status-section-header .panel-section-title { margin-top: 0; }
+  .status-clear-link {
+    background: none; border: none; padding: 2px 0; margin: 0; flex-shrink: 0;
+    font-family: inherit; font-size: 10.5px; font-weight: 700; color: var(--text-faint);
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+    transition: color 0.15s ease;
   }
-  .status-toggle:hover { border-color: var(--text-faint); }
-  .status-toggle:focus-visible { box-shadow: 0 0 0 3px rgba(40, 143, 194, 0.2); }
-  .status-toggle-indicator {
-    width: 15px; height: 15px; border-radius: 5px; border: 1.5px solid var(--border-mid);
-    background: #fff; flex-shrink: 0; position: relative; transition: all 0.15s ease;
-  }
-  .status-toggle-indicator::after {
-    content: ''; position: absolute; inset: 3px; border-radius: 2px; background: transparent; transition: background 0.15s ease;
-  }
-  .status-toggle span { font-size: 11px; font-weight: 600; color: var(--text-dark); }
-  .status-toggle-newhire.active { background: #fff7e0; border-color: var(--warning-yellow); }
-  .status-toggle-newhire.active .status-toggle-indicator { border-color: var(--warning-yellow); }
-  .status-toggle-newhire.active .status-toggle-indicator::after { background: var(--warning-yellow); }
-  .status-toggle-resigned span { color: var(--danger-red); font-weight: 700; }
-  .status-toggle-resigned.active { background: #fef2f2; border-color: var(--danger-red); }
-  .status-toggle-resigned.active .status-toggle-indicator { border-color: var(--danger-red); }
-  .status-toggle-resigned.active .status-toggle-indicator::after { background: var(--danger-red); }
+  .status-clear-link:hover { color: var(--secondary-blue); }
+  .status-clear-link:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(40, 143, 194, 0.2); border-radius: 3px; }
 
-  /* Live helper line reflecting the two toggles above, so it's always clear
-     what will actually appear on the floor plan. */
-  .status-preview { font-size: 10.5px; color: var(--text-faint); font-weight: 600; padding: 0 2px; }
+  .status-chip-row { display: flex; gap: 8px; }
+  .status-chip {
+    flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 10px 10px; border-radius: 999px; border: 1.5px solid var(--border-mid);
+    background: #fff; cursor: pointer; user-select: none; font-family: inherit;
+    font-size: 11px; font-weight: 700; color: var(--text-muted); outline: none;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+  .status-chip:hover { border-color: var(--text-faint); }
+  .status-chip:active { transform: scale(0.97); }
+  .status-chip:focus-visible { box-shadow: 0 0 0 3px rgba(40, 143, 194, 0.2); }
+  .status-chip-icon { font-size: 12px; line-height: 1; color: var(--border-mid); transition: color 0.15s ease; }
+  .status-chip-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--border-mid);
+    flex-shrink: 0; transition: background 0.15s ease;
+  }
+  .status-chip-newhire.active { background: #fff7e0; border-color: var(--warning-yellow); color: #8a6100; }
+  .status-chip-newhire.active .status-chip-icon { color: var(--warning-yellow); }
+  .status-chip-resigned.active { background: #fef2f2; border-color: var(--danger-red); color: var(--danger-red); }
+  .status-chip-resigned.active .status-chip-dot { background: var(--danger-red); }
 
-  /* ============ Duty Schedule fields (seat panel + schedule manager) ============ */
+  /* Live helper line reflecting the two chips above, so it's always clear
+     what will actually appear on the floor plan. Styled like the Duty
+     Schedule account-default preview box for visual consistency. */
+  .status-preview {
+    font-size: 10.5px; color: var(--text-muted); font-weight: 600;
+    background: var(--bg-subtle); border-radius: var(--radius-sm); padding: 7px 9px;
+  }
+
+  /* Live one-line recap of the Asset Information fields above, filling the
+     column with something actually useful (and useful at a glance) rather
+     than leaving trailing empty space, matching the muted preview-box style
+     used elsewhere in the panel. */
+  .asset-summary {
+    margin-top: 4px; font-size: 10.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600;
+    background: var(--bg-subtle); border-radius: var(--radius-sm); padding: 9px 11px;
+  }
+  .asset-summary strong { color: var(--text-dark); font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; font-size: 9.5px; display: block; margin-bottom: 3px; }
+  .asset-summary .asset-summary-empty { color: var(--text-faint); font-weight: 600; }
   .schedule-account-preview {
     font-size: 10.5px; color: var(--text-muted); background: var(--bg-subtle);
     border-radius: var(--radius-sm); padding: 7px 9px;
