@@ -14,7 +14,7 @@ const HQ_OPS_ACCOUNTS = {
   'OPS 5': ['Health Carousel'],
   'OPS 6': [],
   'OPS 7': ['Travers', 'USLS'],
-  'OPS 8': ['UTD', 'Under the Doormat'],
+  'OPS 8': ['Under the Doormat'],
   'OPS 9': [],
   // Real floor plan is in now; no accounts assigned yet, so it starts fully vacant.
   'OPS 10': []
@@ -28,7 +28,7 @@ const CANDELARIA_OPS_ACCOUNTS = {
   'OPS 2': [],
   'OPS 3': [],
   'OPS 4': ['Cipher Billing'],
-  'OPS 5': ['USLS', 'MyCali PT', 'Imagine Learning', 'HQ']
+  'OPS 5': ['USLS', 'MyCali PT', 'Imagine Learning']
 };
 
 const SITE_OPS_ACCOUNTS = {
@@ -73,13 +73,11 @@ function getAccountSchedule(team) {
   return map[team] || null;
 }
 
-// Every account name currently assigned to any OPS in a site, plus "Team
-// Lead" (which behaves like a pseudo-account in the team dropdown already).
+// Every account name currently assigned to any OPS in a site.
 function allAccountsForSite(site) {
   const map = SITE_OPS_ACCOUNTS[site] || {};
   const set = new Set();
   Object.values(map).forEach(list => (list || []).forEach(a => { if (a) set.add(a); }));
-  set.add('Team Lead');
   return Array.from(set).sort();
 }
 
@@ -493,15 +491,16 @@ const CANDELARIA_ROOM_LAYOUTS = {
     colTemplate: '90px repeat(9, 1fr) 70px',
     items: [
       ...seatRun(0, 1, 'BAY1P', [1, 2, 3, 4, 5, 6, 7, 8, 9]),
-      // Full-width AISLE band between BAY 1 (row 0) and BAY 2 (row 2),
-      // matching the source Candelaria_Seatplan.xlsx sheet exactly.
-      { row: 1, col: 0, colSpan: 11, type: 'gap', horizontal: true },
+      // DOOR sits at the far left, directly above the B3P1/B3P2/B3P3 column
+      // and below the BAY 1 row — the AISLE gap continues alongside it
+      // across the rest of the row.
+      { row: 1, col: 0, type: 'door' },
+      { row: 1, col: 1, colSpan: 10, type: 'gap', horizontal: true },
       // BAY 3's three cubicles form their own column at col 0, lined up
       // row-by-row against BAY 2 — B3P3 has no BAY 2 row beside it, so
       // that row is genuinely empty on the right (no filler cells).
       { row: 2, col: 0, type: 'seat', id: 'B3P1' },
       ...seatRun(2, 1, 'BAY2P', [1, 2, 3, 4, 5, 6, 7, 8, 9]),
-      { row: 2, col: 10, type: 'door' },
       { row: 3, col: 0, type: 'seat', id: 'B3P2' },
       ...seatRun(3, 1, 'BAY2P', [10, 11, 12, 13, 14, 15, 16, 17, 18]),
       { row: 4, col: 0, type: 'seat', id: 'B3P3' }
@@ -511,8 +510,7 @@ const CANDELARIA_ROOM_LAYOUTS = {
 
 // Seed occupants for the real Candelaria seat plan. Job titles from the
 // source sheet (e.g. "Benefits Specialist") aren't stored — this app only
-// tracks occupant name + account, same as HQ. Team Lead follows the same
-// "TL <name>" + team:'Team Lead' convention used on the HQ sheets.
+// tracks occupant name + account, same as HQ.
 const CANDELARIA_OPS_DEFAULTS = {
   'OPS 1': {
     seats: {
@@ -552,7 +550,7 @@ const CANDELARIA_OPS_DEFAULTS = {
       'BAY2P2': { occupant: 'Maria Lourdes Dimayuga', team: 'USLS', status: 'occupied', isNewHire: false },
       'BAY2P3': { occupant: 'Lily Alcantara', team: 'USLS', status: 'occupied', isNewHire: false },
       'BAY2P4': { occupant: 'Marvin Mance', team: 'USLS', status: 'occupied', isNewHire: false },
-      'BAY2P5': { occupant: 'Richley Anne Sedeno', team: 'HQ', status: 'occupied', isNewHire: false }
+      'BAY2P5': { occupant: 'Richley Anne Sedeno', team: 'USLS', status: 'occupied', isNewHire: false }
     }
   }
 };
@@ -574,7 +572,7 @@ const OPS1_SEATS = {
   'BAY1P32': { occupant: 'Dennis Bautista', team: 'Clearabee', status: 'occupied', isNewHire: false },
   'BAY1P33': { occupant: 'Erica Joy Aquino', team: 'Clearabee', status: 'occupied', isNewHire: false },
   'BAY1P34': { occupant: 'Ivory Jayne Anonuevo', team: 'Clearabee', status: 'occupied', isNewHire: false },
-  'BAY1P35': { occupant: 'TL Joece Marquez', team: 'Team Lead', status: 'occupied', isNewHire: false },
+  'BAY1P35': { occupant: 'TL Joece Marquez', team: '', status: 'occupied', isNewHire: false },
   'BAY1P14': { occupant: 'Miguel Manago', team: 'Imagine Learning', status: 'training', isNewHire: true },
   'BAY1P15': { occupant: 'Mark Bryan Hernandez', team: 'Imagine Learning', status: 'training', isNewHire: true },
   'BAY1P16': { occupant: 'John Edmar Amante', team: 'Imagine Learning', status: 'training', isNewHire: true },
@@ -585,13 +583,13 @@ const OPS1_SEATS = {
   'BAY1P2':  { occupant: 'Jecelle Cubelo', team: 'Clearabee', status: 'occupied', isNewHire: false },
   'BAY1P3':  { occupant: 'Jessiekelly Eguac', team: 'Clearabee', status: 'occupied', isNewHire: false },
   'BAY1P4':  { occupant: 'Sheila Romasasa', team: 'Clearabee', status: 'occupied', isNewHire: false },
-  'BAY1P5':  { occupant: 'TL Glen Baluyot', team: 'Team Lead', status: 'occupied', isNewHire: false },
+  'BAY1P5':  { occupant: 'TL Glen Baluyot', team: '', status: 'occupied', isNewHire: false },
   'BAY1P6':  { occupant: 'James Corales', team: 'Clearabee', status: 'occupied', isNewHire: false },
   'BAY1P8':  { occupant: 'Dale Villaruel', team: 'Clearabee', status: 'occupied', isNewHire: false },
   'BAY1P9':  { occupant: 'Adrian Esguerra', team: 'Clearabee', status: 'occupied', isNewHire: false },
   'BAY1P10': { occupant: 'Lexter Bryan Rivera', team: 'Clearabee', status: 'occupied', isNewHire: false },
   'BAY1P11': { occupant: 'Prisca del Rosario', team: 'Clearabee', status: 'occupied', isNewHire: false },
-  'BAY1P12': { occupant: 'TL Franc Prestoza', team: 'Team Lead', status: 'occupied', isNewHire: false }
+  'BAY1P12': { occupant: 'TL Franc Prestoza', team: '', status: 'occupied', isNewHire: false }
 };
 
 const OPS3_SEATS = {
@@ -634,10 +632,10 @@ const OPS3_SEATS = {
 };
 
 const OPS5_SEATS = {
-  'BAY4_TL': { occupant: 'Carlo', team: 'Team Lead', status: 'occupied', isNewHire: false },
-  'BAY3_TL': { occupant: 'Joemar', team: 'Team Lead', status: 'occupied', isNewHire: false },
-  'BAY2_TL': { occupant: 'Gelo', team: 'Team Lead', status: 'occupied', isNewHire: false },
-  'BAY1_TL': { occupant: 'Jessa', team: 'Team Lead', status: 'occupied', isNewHire: false },
+  'BAY4_TL': { occupant: 'Carlo', team: '', status: 'occupied', isNewHire: false },
+  'BAY3_TL': { occupant: 'Joemar', team: '', status: 'occupied', isNewHire: false },
+  'BAY2_TL': { occupant: 'Gelo', team: '', status: 'occupied', isNewHire: false },
+  'BAY1_TL': { occupant: 'Jessa', team: '', status: 'occupied', isNewHire: false },
   'BAY4P68': { occupant: 'Aloha Amarado', team: 'Health Carousel', status: 'occupied', isNewHire: false },
   'BAY4P69': { occupant: 'M-Psyluck Meres', team: 'Health Carousel', status: 'occupied', isNewHire: false },
   'BAY4P70': { occupant: 'John Carlo Borlaza', team: 'Health Carousel', status: 'occupied', isNewHire: false },
@@ -715,7 +713,7 @@ const OPS7_SEATS = {
   'Bay1P10': { occupant: 'New Hire USLS', team: 'USLS', status: 'training', isNewHire: true },
   'Bay1P9':  { occupant: 'Raymond Jaron Alimagno', team: 'USLS', status: 'occupied', isNewHire: false },
   'Bay1P8':  { occupant: 'New Hire USLS', team: 'USLS', status: 'training', isNewHire: true },
-  'Bay1P7':  { occupant: 'TL Ryan', team: 'Team Lead', status: 'occupied', isNewHire: false },
+  'Bay1P7':  { occupant: 'TL Ryan', team: '', status: 'occupied', isNewHire: false },
   'Bay2P1':  { occupant: 'Jewel Bautista', team: 'USLS', status: 'occupied', isNewHire: false },
   'Bay2P2':  { occupant: 'April Medina', team: 'USLS', status: 'occupied', isNewHire: false },
   'Bay2P3':  { occupant: 'Mhikyla Castro', team: 'USLS', status: 'occupied', isNewHire: false },
@@ -732,26 +730,26 @@ const OPS7_SEATS = {
 };
 
 const OPS8_SEATS = {
-  'BAY2P1':  { occupant: 'Mary Joy Tenerife', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY2P2':  { occupant: 'Diocielle T. Ricafrente', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY2P3':  { occupant: 'Jocelle Tarnate', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY2P4':  { occupant: 'TL Aija', team: 'Team Lead', status: 'occupied', isNewHire: false },
-  'BAY2P13': { occupant: 'Blaine Tan', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY2P9':  { occupant: 'Noel Uriza', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY2P8':  { occupant: 'Gian Mateo N. Tiongson', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY2P6':  { occupant: 'Julie Aglipay', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY2P7':  { occupant: 'TL Jomar Bataller', team: 'Team Lead', status: 'occupied', isNewHire: false },
-  'BAY1P1':  { occupant: 'Erika Capistrano', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY1P12': { occupant: 'TL Janice', team: 'Team Lead', status: 'occupied', isNewHire: false },
-  'BAY1P2':  { occupant: 'Nicaella Villanueva', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY1P11': { occupant: 'Alexander R. Caballes', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY1P3':  { occupant: 'Ernna Clair Pasco', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY1P8':  { occupant: 'Maribeth Adarme', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY1P4':  { occupant: 'Catherine Merano', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY1P9':  { occupant: 'Niel Joyce Evangelista Graciano', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY1P5':  { occupant: 'Johanna May E. Marasigan', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY1P13': { occupant: 'Marvin Aningalan', team: 'UTD', status: 'occupied', isNewHire: false },
-  'BAY1P6':  { occupant: 'Duke Jasper Chiyuto', team: 'UTD', status: 'occupied', isNewHire: false }
+  'BAY2P1':  { occupant: 'Mary Joy Tenerife', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY2P2':  { occupant: 'Diocielle T. Ricafrente', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY2P3':  { occupant: 'Jocelle Tarnate', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY2P4':  { occupant: 'TL Aija', team: '', status: 'occupied', isNewHire: false },
+  'BAY2P13': { occupant: 'Blaine Tan', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY2P9':  { occupant: 'Noel Uriza', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY2P8':  { occupant: 'Gian Mateo N. Tiongson', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY2P6':  { occupant: 'Julie Aglipay', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY2P7':  { occupant: 'TL Jomar Bataller', team: '', status: 'occupied', isNewHire: false },
+  'BAY1P1':  { occupant: 'Erika Capistrano', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY1P12': { occupant: 'TL Janice', team: '', status: 'occupied', isNewHire: false },
+  'BAY1P2':  { occupant: 'Nicaella Villanueva', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY1P11': { occupant: 'Alexander R. Caballes', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY1P3':  { occupant: 'Ernna Clair Pasco', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY1P8':  { occupant: 'Maribeth Adarme', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY1P4':  { occupant: 'Catherine Merano', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY1P9':  { occupant: 'Niel Joyce Evangelista Graciano', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY1P5':  { occupant: 'Johanna May E. Marasigan', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY1P13': { occupant: 'Marvin Aningalan', team: 'Under the Doormat', status: 'occupied', isNewHire: false },
+  'BAY1P6':  { occupant: 'Duke Jasper Chiyuto', team: 'Under the Doormat', status: 'occupied', isNewHire: false }
 };
 
 const HQ_OPS_DEFAULTS = {
@@ -902,7 +900,10 @@ function populateAccountDropdown(selectedVal = '') {
   select.innerHTML = '<option value="">-- Select Account --</option>';
   
   let list = opsAccounts[currentOps] ? [...opsAccounts[currentOps]] : [];
-  if (!list.includes('Team Lead')) list.push('Team Lead');
+  // Preserve any legacy value a seat may still carry (e.g. an old "Team Lead"
+  // tag) so opening that seat doesn't silently blank its selection, even
+  // though it's no longer offered as a pickable account going forward.
+  if (selectedVal && !list.includes(selectedVal)) list.push(selectedVal);
 
   list.sort().forEach(acc => {
     const opt = document.createElement('option');
@@ -1519,7 +1520,8 @@ function readScheduleFields(container) {
 // ---- Seat Asset Information (hardware assigned to a seat) ----
 const PROCESSOR_TIER_LABELS = {
   intel: { '3': 'Intel Core i3', '5': 'Intel Core i5', '7': 'Intel Core i7', '9': 'Intel Core i9' },
-  amd: { '3': 'AMD Ryzen 3', '5': 'AMD Ryzen 5', '7': 'AMD Ryzen 7', '9': 'AMD Ryzen 9' }
+  amd: { '3': 'AMD Ryzen 3', '5': 'AMD Ryzen 5', '7': 'AMD Ryzen 7', '9': 'AMD Ryzen 9' },
+  apple: { 'm1': 'Apple M1', 'm2': 'Apple M2', 'm3': 'Apple M3', 'm4': 'Apple M4' }
 };
 
 function freshAssetTemplate() {
@@ -1556,13 +1558,13 @@ function populateMonitorOptions(assetType, selectedMonitors) {
   if (!sel) return;
   sel.innerHTML = '';
   sel.appendChild(new Option('-- Select --', ''));
-  if (assetType === 'laptop') {
+  if (assetType === 'laptop' || assetType === 'macbook') {
     sel.appendChild(new Option('None', 'none'));
   }
   sel.appendChild(new Option('1', '1'));
   sel.appendChild(new Option('2', '2'));
   sel.appendChild(new Option('N/A', 'na'));
-  const validValues = ['1', '2', 'na'].concat(assetType === 'laptop' ? ['none'] : []);
+  const validValues = ['1', '2', 'na'].concat((assetType === 'laptop' || assetType === 'macbook') ? ['none'] : []);
   sel.value = validValues.includes(selectedMonitors) ? selectedMonitors : '';
 }
 
@@ -1596,7 +1598,8 @@ function updateAssetSummary() {
   if (!el) return;
   const asset = readAssetFields();
   const parts = [];
-  if (asset.type) parts.push(asset.type === 'laptop' ? 'Laptop' : 'Desktop');
+  const ASSET_TYPE_LABELS = { laptop: 'Laptop', macbook: 'Macbook', desktop: 'Desktop' };
+  if (asset.type) parts.push(ASSET_TYPE_LABELS[asset.type] || 'Desktop');
   const tierLabel = PROCESSOR_TIER_LABELS[asset.processorBrand] && PROCESSOR_TIER_LABELS[asset.processorBrand][asset.processorTier];
   if (tierLabel) parts.push(tierLabel);
   if (asset.ram) parts.push(asset.ram + 'GB RAM');
@@ -3045,7 +3048,6 @@ function xlsxWriteVerticalRoom(sheet, ops, cfg, seats, startRow) {
 function xlsxWriteLegend(sheet, row) {
   const items = [
     ['Occupied', XLS_COLORS.occupied],
-    ['Team Lead', XLS_COLORS.teamLead],
     ['Training', XLS_COLORS.training],
     ['Reserved', XLS_COLORS.reserved],
     ['Vacant', XLS_COLORS.vacant]
