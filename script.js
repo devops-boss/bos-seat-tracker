@@ -1525,7 +1525,7 @@ const PROCESSOR_TIER_LABELS = {
 };
 
 function freshAssetTemplate() {
-  return { type: '', processorBrand: '', processorTier: '', ram: '', ssdBrand: '', ssdStorage: null, monitors: '' };
+  return { type: '', processorBrand: '', processorTier: '', ram: '', ssdBrand: '', ssdStorage: null, monitors: '', rustdeskId: '' };
 }
 
 // Rebuilds the Processor Tier dropdown to match whichever brand is picked
@@ -1576,6 +1576,7 @@ function readAssetFields() {
   const ssdBrandEl = document.getElementById('assetSsdBrandInput');
   const ssdStorageEl = document.getElementById('assetSsdStorageInput');
   const monitorsEl = document.getElementById('assetMonitorsInput');
+  const rustdeskIdEl = document.getElementById('assetRustdeskIdInput');
   const storageRaw = ssdStorageEl ? ssdStorageEl.value.trim() : '';
   return {
     type: typeEl ? typeEl.value : '',
@@ -1584,7 +1585,8 @@ function readAssetFields() {
     ram: ramEl ? ramEl.value : '',
     ssdBrand: ssdBrandEl ? ssdBrandEl.value.trim() : '',
     ssdStorage: storageRaw === '' ? null : Math.max(0, parseInt(storageRaw, 10) || 0),
-    monitors: monitorsEl ? monitorsEl.value : ''
+    monitors: monitorsEl ? monitorsEl.value : '',
+    rustdeskId: rustdeskIdEl ? rustdeskIdEl.value.trim() : ''
   };
 }
 
@@ -1967,6 +1969,8 @@ function openPanel(id) {
   document.getElementById('assetSsdBrandInput').value = asset.ssdBrand || '';
   document.getElementById('assetSsdStorageInput').value = (asset.ssdStorage === null || asset.ssdStorage === undefined) ? '' : asset.ssdStorage;
   populateMonitorOptions(asset.type || '', asset.monitors || '');
+  document.getElementById('assetRustdeskIdInput').value = asset.rustdeskId || '';
+  resetCopyRustdeskIdBtn();
   updateAssetSummary();
 
   document.getElementById('panel').classList.add('open');
@@ -2451,6 +2455,51 @@ document.getElementById('assetTypeInput').addEventListener('change', function() 
 });
 ['assetSsdBrandInput', 'assetSsdStorageInput'].forEach(id => {
   document.getElementById(id).addEventListener('input', updateAssetSummary);
+});
+
+// Copy-to-clipboard button next to the RustDesk ID field. Uses the modern
+// Clipboard API when available (requires a secure context) and falls back
+// to a hidden textarea + execCommand for older/non-HTTPS setups so the
+// button still works either way.
+function resetCopyRustdeskIdBtn() {
+  const btn = document.getElementById('copyRustdeskIdBtn');
+  if (!btn) return;
+  btn.classList.remove('copied');
+  btn.title = 'Copy RustDesk ID';
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
+document.getElementById('copyRustdeskIdBtn').addEventListener('click', async function() {
+  const input = document.getElementById('assetRustdeskIdInput');
+  const value = input.value.trim();
+  if (!value) {
+    input.focus();
+    return;
+  }
+  try {
+    await copyTextToClipboard(value);
+    this.classList.add('copied');
+    this.title = 'Copied!';
+    showNotification('RustDesk ID copied to clipboard', 'success');
+    setTimeout(() => resetCopyRustdeskIdBtn(), 1500);
+  } catch (err) {
+    showNotification('Could not copy — please copy it manually', 'warning');
+  }
 });
 
 // New Hire / Resigned status toggles — plain click-to-toggle buttons (same

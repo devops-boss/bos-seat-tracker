@@ -685,6 +685,22 @@
   .field-row-2 { display: flex; gap: 10px; }
   .field-row-2 .field-group { flex: 1 1 0; min-width: 0; }
 
+  /* Text field with a small action button docked to its right edge, e.g.
+     the RustDesk ID "copy" button. The input keeps its normal full-width
+     styling; the button sits inside the same visual row without its own
+     border so the pair reads as one control. */
+  .input-with-action { display: flex; align-items: stretch; gap: 6px; }
+  .input-with-action input[type="text"] { flex: 1 1 auto; min-width: 0; }
+  .input-action-btn {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+    width: 34px; padding: 0; border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm);
+    background: #fff; color: var(--text-muted); cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .input-action-btn:hover { border-color: var(--secondary-blue); color: var(--secondary-blue); background: #f0f9ff; }
+  .input-action-btn:active { transform: translateY(1px); }
+  .input-action-btn.copied { border-color: #16a34a; color: #16a34a; background: #f0fdf4; }
+
   .account-btn-row { display: flex; gap: 6px; margin-top: 6px; }
   .account-btn-row .subtle { padding: 4px 9px; font-size: 10.5px; flex: 1 1 auto; }
   .subtle.danger-text { color: #b91c1c; }
